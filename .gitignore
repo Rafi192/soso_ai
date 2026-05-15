@@ -1,0 +1,3 @@
+.env
+soso_env/
+app/__pycache__/
