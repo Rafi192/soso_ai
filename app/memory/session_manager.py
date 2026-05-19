@@ -72,4 +72,9 @@ class SessionManager:
         })
         return session
     
+    def save_answer(self, session:UserSession, key:str, value) -> UserSession:
+
+        session.answers[key] = value
+        return session
+    
     
