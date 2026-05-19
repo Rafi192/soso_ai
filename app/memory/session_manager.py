@@ -77,4 +77,10 @@ class SessionManager:
         session.answers[key] = value
         return session
     
+    def increament_question_index(self, session:UserSession) -> UserSession:
+        session.question_index +=1
+        return session
     
+    def update_confidence(self, session:UserSession, new_score:float) -> UserSession:
+        session.confidence_scores = max(0.0, min(1.0, new_score))
+        return session
