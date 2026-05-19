@@ -1,7 +1,9 @@
 #memory/session_manager.py
 
+from datetime import datetime, UTC
 import json
-import logging 
+import logging
+
 
 import redis.asyncio as redis
 
@@ -21,18 +23,40 @@ class SessionManager:
     #if the key doesnt exist( new user or expired TTL), 
     #create a fresh empty session and return it
     async def load_session(self, user_id:str) -> UserSession:
+        session_data = await self.redis.get(user_id)
 
-        raw_session = await self.redis.get(user_id)
-
-        if raw_session:
-            data = json.loads(raw_session)
-            logger.info(f"session loaded for user_id: {user_id}")
-
+        if session_data:
+            data = json.loads(session_data)
             return UserSession(**data)
         
-        logger.info(f"no existing session for user_id: {user_id}. creating new session.")
+        # no session found , create a new one
+        logger.info(f"no session found for user {user_id}, creating new session")
 
         session = empty_session(user_id)
-        await self.save(session)
+        await self.save_session(session)
         return session
+    
+    #save session method 
 
+    async def save_session(self, session:UserSession) -> None:
+
+        # session data will be saved based on user activity, so we update the last_active timestamp on every save
+
+        session.last_active = datetime.now(UTC).isoformat()
+
+        await self.redis.set(
+            session.user_id,
+            session.model_dump_json(),
+            ex=self.ttl
+        )
+        logger.info(f"session for user {session.user_id} saved to redis with session stage {session.stage} and question index {session.question_index}")
+
+    
+    # now need to create helper methods for orchestrator and workflows
+
+    # updating stage 
+    async def update_stage(self, session:UserSession, new_stage:str) -> UserSession:
+        session.stage = new_stage
+        session.question_index = 0 # reset question index whenever stage changes
+        return session
+    
