@@ -55,8 +55,21 @@ class SessionManager:
     # now need to create helper methods for orchestrator and workflows
 
     # updating stage 
-    async def update_stage(self, session:UserSession, new_stage:str) -> UserSession:
+    def update_stage(self, session:UserSession, new_stage:str) -> UserSession:
         session.stage = new_stage
         session.question_index = 0 # reset question index whenever stage changes
         return session
+    
+
+    def append_history(self, session:UserSession, user_message:str, assistant_reply:str) -> UserSession:
+        session.history.append({""
+        "role": "user",
+        "content": user_message})
+
+        session.history.append({
+            "role": "assistant",
+            "content": assistant_reply
+        })
+        return session
+    
     
