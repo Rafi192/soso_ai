@@ -14,3 +14,23 @@ def get_openai_client() -> AsyncOpenAI:
     
     return client
 
+
+# openai chat method
+
+async def chat(
+        messages:list[dict],
+        model:str,
+        temperature:float,
+        max_tokens:int
+
+):
+    client = get_openai_client()
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens
+    )
+    return response.choices[0].message.content
+
