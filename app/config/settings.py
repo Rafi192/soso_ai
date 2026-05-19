@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     gpt_mini_model:str = "gpt-4o-mini"
 
     #mongoDB variables
-    MONGO_URI:str = ""
+    MONGO_URI:str = "mongodb+srv://rafi_hasan:<db_password>@cluster0.waj9n8y.mongodb.net/?appName=Cluster0"
     MONGO_DB:str = "soso_DB"
+    MONGO_COLLECTION:str = "conversations"
 
     class config:
         env_file = ".env"

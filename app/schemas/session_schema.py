@@ -45,8 +45,11 @@ class UserSession(BaseModel):
 
     score:float = 0.0
 
-    # converstation history - sent to openAI each turn
+    #diagnostic turn tracking-- 
+    #stores the key of the question currently waiting for an answer
+    pending_question_key:Optional[str] = None
 
+    # converstation history - sent to openAI each turn
     history:list = Field(default_factory=list)
 
     # metadata

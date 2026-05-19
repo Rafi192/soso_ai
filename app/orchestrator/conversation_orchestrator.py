@@ -4,7 +4,12 @@ import os
 import json
 import logging
 from datetime import datetime, timezone
-
+from app.schemas.session_schema import(
+    UserSession,
+    ConversationStage,
+    STAGE_TRANSITIONS,
+    CONFIDENCE_THRESHOLD
+)
 import redis.asyncio as redis          # async Redis client — matches your FastAPI async world
 from motor.motor_asyncio import AsyncIOMotorClient  # async MongoDB driver for FastAPI
 import openai
