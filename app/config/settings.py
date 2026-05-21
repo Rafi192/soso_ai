@@ -1,30 +1,27 @@
-#config/settings.py
-
+# config/settings.py
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
 
-    #redis configs
-    REDIS_HOST = "localhost"
-    REDIS_PORT = 6379
-    REDIS_DB = 0  # 0 represents the caching database, 1 represents the session database
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_TTL_SECONDS: int = 86400      # 24 hours
 
-    REDIS_TTL_SECONDS = 86400  # 24 hours
+    # OpenAI
+    OPENAI_API_KEY: str
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_MINI_MODEL: str = "gpt-4o-mini"
 
-    #openAI configs
-    OPENAI_API_KEY :str
-    gpt_base_model:str = "gpt-4o"
-    gpt_mini_model:str = "gpt-4o-mini"
+    # MongoDB
+    MONGODB_URI: str
+    MONGODB_DB: str
+    MONGODB_COLLECTION: str
 
-    #mongoDB variables
-    MONGO_URI:str = "mongodb+srv://rafi_hasan:<db_password>@cluster0.waj9n8y.mongodb.net/?appName=Cluster0"
-    MONGO_DB:str = "soso_DB"
-    MONGO_COLLECTION:str = "conversations"
-
-    class config:
+    class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
 
 
 settings = Settings()
-
