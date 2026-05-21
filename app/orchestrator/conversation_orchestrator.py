@@ -352,6 +352,8 @@
 #   get_next_question() would return the wrong key on subsequent turns.
 
 import logging
+
+from requests import session
 from app.schemas.session_schema import (
     UserSession,
     ConversationStage,
@@ -452,9 +454,10 @@ class ConversationOrchestrator:
         Send a warm greeting and ask the first profile question.
         """
         self._advance(session)       # INTRO → PROFILE_COLLECTION
-        question = await self.profile_wf.get_next_question(session, user_input)
-        session.question_index = 1   # we're now waiting for answer to question 0
-        return question
+        # question = await self.profile_wf.get_next_question(session, user_input)
+        # session.question_index = 1   # we're now waiting for answer to question 0
+        # return question
+        return await self.profile_wf.get_next_question(session)
 
     async def _handle_profile(self, session: UserSession, user_input: str) -> str:
         """
@@ -464,35 +467,48 @@ class ConversationOrchestrator:
         """
         # Save the answer to the question we just asked
         session = self.profile_wf.extract_answer(session, user_input)
-        session.question_index += 1
-
+        # Step 2: check if all done
         if self.profile_wf.is_complete(session):
             logger.info(f"[{session.user_id}] Profile complete — moving to problem detection")
-            self._advance(session)   # PROFILE_COLLECTION → PROBLEM_DETECTION
+            self._advance(session)      # PROFILE_COLLECTION → PROBLEM_DETECTION
             return await self.problem_wf.get_category_menu_message(session)
 
-        # More profile questions remain
-        question = await self.profile_wf.get_next_question(session, user_input)
-        return question
+        # Step 3: ask next question
+        return await self.profile_wf.get_next_question(session)
+        # session.question_index += 1
+
+        # if self.profile_wf.is_complete(session):
+        #     logger.info(f"[{session.user_id}] Profile complete — moving to problem detection")
+        #     self._advance(session)   # PROFILE_COLLECTION → PROBLEM_DETECTION
+        #     return await self.problem_wf.get_category_menu_message(session)
+
+        # # More profile questions remain
+        # question = await self.profile_wf.get_next_question(session, user_input)
+        # return question
 
     async def _handle_problem_detection(self, session: UserSession, user_input: str) -> str:
+        
         """
         Detect the user's problem category from their response.
-        Handles both numeric menu selection and free text.
+        Handles numeric selection, free text, and multiple problems.
+        process_problem_input() handles all three cases internally.
         """
-        # Try numeric selection first (user replied '1', '2', etc.)
-        category = self.problem_wf.parse_numeric_selection(user_input)
+        category, needs_clarification, message = await self.problem_wf.process_problem_input(
+            session, user_input
+        )
 
-        # If not numeric, use the LLM classifier
-        if not category:
-            category = await self.problem_wf.detect_category(user_input)
+        if needs_clarification:
+            # User mentioned several problems — stay in PROBLEM_DETECTION
+            # message already contains the re-ask with menu
+            return message
 
-        session.category = category
-        logger.info(f"[{session.user_id}] Category detected: {category}")
+        if category:
+            session.category = category      # only the string
+            logger.info(f"[{session.user_id}] Category detected: {category}")
+            self._advance(session)           # PROBLEM_DETECTION → CATEGORY_CONFIRMATION
 
-        # Advance and ask user to confirm the detected category
-        self._advance(session)       # PROBLEM_DETECTION → CATEGORY_CONFIRMATION
-        return await self.problem_wf.confirm_category(session)
+        # message already contains "If I understand correctly... is that right?"
+        return message
 
     async def _handle_category_confirmation(self, session: UserSession, user_input: str) -> str:
         """
@@ -500,7 +516,7 @@ class ConversationOrchestrator:
         If confirmed → start diagnostics.
         If rejected → go back to problem detection.
         """
-        if self.problem_wf.user_confirmed(user_input):
+        if self.problem_wf._build_confirmation_message(user_input):
             logger.info(f"[{session.user_id}] Category confirmed: {session.category}")
             self._advance(session)   # CATEGORY_CONFIRMATION → DIAGNOSTIC_QUESTIONS
             return await self._ask_next_diagnostic_question(session)

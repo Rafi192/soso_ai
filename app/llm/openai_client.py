@@ -53,7 +53,7 @@ async def classify_problem(user_text:str, categories:list[str]) -> str:
     ]
     result = await chat(
         messages= messages,
-        model= settings.gpt_mini_model,
+        model= settings.OPENAI_MINI_MODEL,
         temperature=0.0,
         max_tokens=10
 

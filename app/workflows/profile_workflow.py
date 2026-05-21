@@ -39,60 +39,51 @@ PROFILE_QUESTIONS = [
 
 class ProfileWorkflow:
 
-    def is_complete(self, session: dict) -> bool:
-        required = ["owner_name", "restaurant_name", "city", "cuisine_type", "years_operating"]
-        # return all(k in session.get("collected_profile", {}) for k in required) # old version with nested profile dict
-        return all(k in session.profile for k in required) # according to pydantic object model
+    def is_complete(self, session: UserSession) -> bool:
+        required = [q["key"] for q in PROFILE_QUESTIONS]
+        return all(k in session.profile for k in required)
 
-    def get_next_question_index(self, session: UserSession) -> int:
+    def get_next_unanswered(self, session: UserSession) -> dict | None:
         """
-        Find the first question whose key hasn't been answered yet.
+        Returns the next unanswered question dict, or None if all done.
+        Uses session.profile keys — not question_index — to find what's missing.
+        This way it's immune to index offset bugs.
         """
-        for i, q in enumerate(PROFILE_QUESTIONS):
+        for q in PROFILE_QUESTIONS:
             if q["key"] not in session.profile:
-                return i
-        return len(PROFILE_QUESTIONS)   # all done
+                return q
+        return None
 
-    async def get_next_question(self, session: UserSession, user_input: str) -> str:
+    def extract_answer(self, session: UserSession, user_input: str) -> UserSession:
         """
-        Returns the next question to ask, rephrased naturally by the LLM.
-        If user_input contains an answer to the previous question, save it first.
+        Saves user_input to the FIRST unanswered profile key.
+        Called by orchestrator BEFORE get_next_question().
+        Only saves if there's an unanswered question pending.
         """
-        # Save the answer to the previous question if there was one
-        prev_index = session.question_index - 1
-        if 0 <= prev_index < len(PROFILE_QUESTIONS) and user_input.strip():
-            key = PROFILE_QUESTIONS[prev_index]["key"]
-            session.profile[key] = user_input.strip()
-            logger.info(f"[{session.user_id}] Profile saved: {key} = {user_input.strip()}")
+        next_q = self.get_next_unanswered(session)
+        if next_q:
+            session.profile[next_q["key"]] = user_input.strip()
+            logger.info(f"[{session.user_id}] Profile saved: {next_q['key']} = {user_input.strip()}")
+        return session
 
-        # Find the next unanswered question
-        next_index = self.get_next_question_index(session)
-        if next_index >= len(PROFILE_QUESTIONS):
-            return None     # signal to orchestrator: profile is complete
+    async def get_next_question(self, session: UserSession, user_input: str = "") -> str:
+        """
+        Returns the next unanswered question rephrased by LLM.
+        Does NOT save answers — extract_answer() handles that.
+        """
+        next_q = self.get_next_unanswered(session)
+        if not next_q:
+            return None     # all done — orchestrator handles transition
 
-        raw_question = PROFILE_QUESTIONS[next_index]["raw"]
-
-        # Rephrase using LLM for natural WhatsApp tone
         system = PromptBuilder.profile_system_prompt()
         messages = PromptBuilder.build_messages(
             system_prompt=system,
             history=session.history,
-            user_input=f"Ask this question naturally: {raw_question}",
+            user_input=f"Ask this question naturally: {next_q['raw']}",
         )
-        reply = await chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=100,
             temperature=0.7,
         )
-        return reply
-
-    def extract_answer(self, session: UserSession, user_input: str) -> UserSession:
-        """
-        Called by orchestrator to save the current answer before advancing.
-        """
-        idx = session.question_index
-        if idx < len(PROFILE_QUESTIONS):
-            key = PROFILE_QUESTIONS[idx]["key"]
-            session.profile[key] = user_input.strip()
-        return session

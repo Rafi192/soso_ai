@@ -5,31 +5,35 @@ from openai import AsyncOpenAI
 
 load_dotenv()
 
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = AsyncOpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 
 async def main():
     try:
-        print(" OpenAI API is working.\n")
-        print("Available models:\n")
+        response = await client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "user", "content": "Say hello"}
+            ],
+            max_tokens=10
+        )
 
-        count = 0
+        print("✅ OpenAI paid API is working!\n")
 
-        async for model in client.models.list():
-            
-            print("-", model.id)
+        print("Response:")
+        print(response.choices[0].message.content)
 
-            count += 1
-            if count >= 20:   
-                break
+        print("\nToken Usage:")
+        print(response.usage)
 
     except Exception as e:
-        print(" Error connecting to OpenAI API:")
+        print("❌ API request failed:")
         print(e)
 
 
 asyncio.run(main())
-
 
 #sync style for quick testing without async setup
 # from openai import OpenAI
