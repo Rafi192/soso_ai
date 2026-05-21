@@ -24,3 +24,4 @@ orjson
 
 python-multipart
 langchain-core
+motor
