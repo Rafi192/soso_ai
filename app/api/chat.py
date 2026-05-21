@@ -38,7 +38,7 @@ async def chat(request: Request, body: ChatRequest):
         raise HTTPException(status_code=500, detail="Internal error — please try again")
 
     # Load session just for stage reporting (no extra Redis call — it's cached)
-    session = await orchestrator.sessions.load(body.user_id)
+    session = await orchestrator.sessions.load_session(body.user_id)
 
     return ChatResponse(
         user_id=body.user_id,

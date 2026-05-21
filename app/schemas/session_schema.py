@@ -43,7 +43,7 @@ class UserSession(BaseModel):
 
     answers:dict = Field(default_factory=dict)
 
-    score:float = 0.0
+    score:Optional[float] = 0.0
 
     #diagnostic turn tracking-- 
     #stores the key of the question currently waiting for an answer

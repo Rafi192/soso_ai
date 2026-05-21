@@ -81,7 +81,7 @@ class ProblemDetectionWorkflow:
                 "Do NOT include the menu — I will append it."
             ),
         )
-        intro = await _chat(
+        intro = await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=80,
@@ -213,7 +213,7 @@ class ProblemDetectionWorkflow:
                 "Then append the menu options again."
             ),
         )
-        reply = await _chat(
+        reply = await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=120,
@@ -246,7 +246,7 @@ class ProblemDetectionWorkflow:
                 "Format: 'If I understand correctly, [rephrase]. Is that right?'"
             ),
         )
-        return await _chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=100,
@@ -273,7 +273,7 @@ class ProblemDetectionWorkflow:
             ),
         )
         
-        return await _chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=100,

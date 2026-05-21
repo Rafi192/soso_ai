@@ -25,7 +25,7 @@ async def chat(
 ):
     client = get_openai_client()
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=temperature,

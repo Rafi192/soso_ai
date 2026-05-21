@@ -39,12 +39,10 @@ PROFILE_QUESTIONS = [
 
 class ProfileWorkflow:
 
-    def is_complete(self, session: UserSession) -> bool:
-        """
-        Profile is complete when all required fields have been collected.
-        """
-        required = [q["key"] for q in PROFILE_QUESTIONS]
-        return all(k in session.profile for k in required)
+    def is_complete(self, session: dict) -> bool:
+        required = ["owner_name", "restaurant_name", "city", "cuisine_type", "years_operating"]
+        # return all(k in session.get("collected_profile", {}) for k in required) # old version with nested profile dict
+        return all(k in session.profile for k in required) # according to pydantic object model
 
     def get_next_question_index(self, session: UserSession) -> int:
         """
@@ -81,7 +79,7 @@ class ProfileWorkflow:
             history=session.history,
             user_input=f"Ask this question naturally: {raw_question}",
         )
-        reply = await _chat(
+        reply = await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=100,

@@ -8,3 +8,5 @@ app/orchestrator/__pycache__/
 app/schemas/__pycache__/
 app/workflows/__pycache__/
 app/memory/__pycache__/
+app/recommendations/__pycache__/
+app/scoring/__pycache__/

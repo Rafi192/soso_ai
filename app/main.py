@@ -6,6 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.api.chat import router as chat_router
 from app.memory.redis_client import get_redis, close_redis
@@ -27,25 +28,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── STARTUP ──────────────────────────────────────────────────────────────
     logger.info("Starting up...")
 
     redis_client = await get_redis()
-    session_manager = SessionManager(redis_client)
-    orchestrator = ConversationOrchestrator(session_manager)
+    session_manager = SessionManager(redis_client)      # wrap Redis in SessionManager
+    orchestrator = ConversationOrchestrator(session_manager)  # pass SessionManager
 
-    # Attach to app.state so API routes can access them via request.app.state
-    app.state.redis = redis_client
-    app.state.session_manager = session_manager
     app.state.orchestrator = orchestrator
 
     logger.info(f"Connected to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
     logger.info(f"Using OpenAI model: {settings.OPENAI_MODEL}")
     logger.info("Startup complete.")
 
-    yield  # app runs here
+    yield
 
-    # ── SHUTDOWN ─────────────────────────────────────────────────────────────
     logger.info("Shutting down...")
     await close_redis()
     logger.info("Redis connection closed.")

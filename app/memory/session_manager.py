@@ -61,16 +61,17 @@ class SessionManager:
         return session
     
 
-    def append_history(self, session:UserSession, user_message:str, assistant_reply:str) -> UserSession:
-        session.history.append({""
-        "role": "user",
-        "content": user_message})
-
+    def append_history(self, session: UserSession, user_message: str, assistant_reply: str) -> UserSession:
+        session.history.append({            # ← fixed syntax
+            "role": "user",
+            "content": user_message
+        })
         session.history.append({
             "role": "assistant",
             "content": assistant_reply
         })
         return session
+
     
     def save_answer(self, session:UserSession, key:str, value) -> UserSession:
 
