@@ -1,3 +1,9 @@
 .env
 soso_env/
 app/__pycache__/
+app/api/__pycache__/
+app/config/__pycache__/
+app/llm/__pycache__/
+app/orchestrator/__pycache__/
+app/schemas/__pycache__/
+app/workflows/__pycache__/

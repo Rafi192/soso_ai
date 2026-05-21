@@ -6,7 +6,7 @@
 import logging
 from app.schemas.session_schema import UserSession
 from app.llm.prompt_builder import PromptBuilder
-from app.llm.openai_client import _chat
+from app.llm.openai_client import chat
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
