@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 # The questions asked in order, with the session key they map to.
 # question_index in the session tracks where we are.
 PROFILE_QUESTIONS = [
-    {
+      {
         "key": "owner_name",
-        "raw": "What's your name?",
+        "raw": "What is YOUR name? (the owner or manager's personal name, not the restaurant name)",
     },
     {
         "key": "restaurant_name",

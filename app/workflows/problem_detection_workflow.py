@@ -117,7 +117,7 @@ class ProblemDetectionWorkflow:
             confirm_msg = await self._build_transition_message(session, category)
             return category, False, confirm_msg
 
-        # ── Case 2: Multiple problems ────────────────────────────────────────
+        # ── Ca se 2: Multiple problems ────────────────────────────────────────
         if self._mentions_multiple_problems(user_input):
             logger.info(f"[{session.user_id}] Multiple problems detected")
             msg = await self._ask_priority_problem(session)
@@ -147,6 +147,11 @@ class ProblemDetectionWorkflow:
             message   → next message to send
         """
         text = user_input.lower().strip()
+        numeric_category = self._parse_numeric(user_input)
+        if numeric_category:
+            session.category = numeric_category
+            msg = await self._build_transition_message(session, numeric_category)
+            return True, msg
 
         if any(word in text for word in AFFIRMATIVES):
             logger.info(f"[{session.user_id}] Category confirmed: {session.category}")

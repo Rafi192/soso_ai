@@ -511,22 +511,15 @@ class ConversationOrchestrator:
         return message
 
     async def _handle_category_confirmation(self, session: UserSession, user_input: str) -> str:
-        """
-        User confirms or rejects the detected category.
-        If confirmed → start diagnostics.
-        If rejected → go back to problem detection.
-        """
-        if self.problem_wf._build_confirmation_message(user_input):
-            logger.info(f"[{session.user_id}] Category confirmed: {session.category}")
-            self._advance(session)   # CATEGORY_CONFIRMATION → DIAGNOSTIC_QUESTIONS
-            return await self._ask_next_diagnostic_question(session)
-        else:
-            # User said no — go back and re-detect
-            logger.info(f"[{session.user_id}] Category rejected — restarting detection")
-            session.category = None
-            session.stage = ConversationStage.PROBLEM_DETECTION
-            return await self.problem_wf.get_category_menu_message(session)
+        confirmed, message = await self.problem_wf.handle_confirmation(session, user_input)
 
+        if confirmed:
+            logger.info(f"[{session.user_id}] Category confirmed: {session.category}")
+            self._advance(session)
+            return await self._ask_next_diagnostic_question(session)
+
+        return message
+    
     async def _handle_diagnostics(self, session: UserSession, user_input: str) -> str:
         """
         The core diagnostic loop — one question per message.

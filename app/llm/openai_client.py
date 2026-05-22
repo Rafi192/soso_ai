@@ -33,33 +33,49 @@ async def chat(
     )
     return response.choices[0].message.content.strip()
 
+async def classify_problem(user_text: str, categories: list[str]) -> str:
 
-async def classify_problem(user_text:str, categories:list[str]) -> str:
-    category_list = "\n".join(f"- {c}" for c in categories)
+    # Descriptions tell the LLM what each category actually means
+    category_descriptions = {
+        "TYPE_1_PLATFORM_DEPENDENCY": "too dependent on Uber Eats, Deliveroo, delivery platforms, paying high commissions",
+        "TYPE_2_LOCAL_VISIBILITY":    "not enough customers, lack of visibility, no one knows about us, need more foot traffic, weak marketing",
+        "TYPE_3_LOW_MARGIN":          "making sales but low profit, food cost too high, money disappearing, margins too thin",
+        "TYPE_4_RETENTION":           "customers come once but don't return, repeat business problem, loyalty issues",
+        "TYPE_5_DIGITAL_CHAOS":       "too many tools, nothing connects, digital mess, tech frustration",
+        "TYPE_6_LAUNCH":              "new opening, relaunching, new location, just starting out",
+        "OTHER":                      "anything that doesn't fit the above",
+    }
+
+    # Build a clean description list for the prompt
+    described = "\n".join(
+        f"- {cat}: {desc}"
+        for cat, desc in category_descriptions.items()
+        if cat in categories
+    )
 
     messages = [
         {
             "role": "system",
             "content": (
-                "You are a classification engine"
-                "Given user text, return ONLY the single most matching category"
-                "from the list below. Return exactly one category name"
-                 "If nothing matches, return UNKNOWN.\n\n"
-                f"Categories:\n{category_list}"
+                "You are a classification engine for restaurant business problems. "
+                "Given the user's text, return ONLY the single most matching category key exactly as written. "
+                "No explanation, no punctuation, just the key.\n\n"
+                f"Categories:\n{described}"
             ),
         },
         {"role": "user", "content": user_text},
-            
     ]
-    result = await chat(
-        messages= messages,
-        model= settings.OPENAI_MINI_MODEL,
-        temperature=0.0,
-        max_tokens=10
 
+    result = await chat(
+        messages=messages,
+        model=settings.OPENAI_MINI_MODEL,   # cheap — classification only
+        max_tokens=20,
+        temperature=0.0,                     # fully deterministic
     )
-    logger.info(f"Classfifiction result for user text '{user_text}' is '{result}'")
-    return result.strip()
+
+    result = result.strip()
+    logger.info(f"Classification result for user text '{user_text}' is '{result}'")
+    return result
 
 async def generate_conversational_question(
         raw_question:str,
