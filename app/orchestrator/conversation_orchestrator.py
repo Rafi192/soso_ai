@@ -638,7 +638,7 @@ class ConversationOrchestrator:
         Simple open-ended LLM response using full session context.
         """
         from app.llm.prompt_builder import PromptBuilder
-        from app.llm.openai_client import _chat
+        from app.llm.openai_client import chat
         from app.config.settings import settings
 
         system = PromptBuilder.recommendations_system_prompt(session)
@@ -647,7 +647,7 @@ class ConversationOrchestrator:
             history=session.history,
             user_input=user_input,
         )
-        return await _chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=300,
