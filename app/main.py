@@ -2,6 +2,7 @@
 # FastAPI app entry point.
 # Wires all dependencies together at startup.
 
+import utils.session
 import logging
 from contextlib import asynccontextmanager
 
