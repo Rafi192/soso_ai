@@ -1,15 +1,17 @@
-#schemas/ chat_schema.py
+# schemas/chat_schema.py
 
-from pydantic_settings import BaseSettings
-
-class ChatRequest(BaseSettings):
-    user_id:str #whatsapp number
-    message:str # user message
+from typing import Optional, Any
+from pydantic import BaseModel
 
 
-class ChatResponse(BaseSettings):
-    user_id:str
-    reply:str # message 
-    stage:str #current stage4 of the conversation
-    
-    
+class ChatRequest(BaseModel):
+    whatsappNumber: str          # NestJS sends this field name
+    userMessage: str             # NestJS sends this field name
+    conversationHistory: list = []
+    restaurantProfile: Optional[dict] = None
+
+
+class ChatResponse(BaseModel):
+    responseText: str            # NestJS reads this field name
+    extractedData: dict = {}     # NestJS reads this
+    actionTriggered: Optional[str] = None   # NestJS reads this
