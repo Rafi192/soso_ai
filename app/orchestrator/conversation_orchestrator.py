@@ -41,15 +41,15 @@ class ConversationOrchestrator:
     # MAIN ENTRY POINT
     # ===========================================================================
     async def handle_message(self, user_id: str, user_input: str) -> str:
-        session = await self.sessions.load(user_id)
+        session = await self.sessions.load_session(user_id)
         logger.info(f"[{user_id}] Stage: {session.stage} | Input: {user_input!r}")
 
         reply = await self._route(session, user_input)
 
         session = self.sessions.append_history(session, user_input, reply)
-        await self.sessions.save(session)
+        await self.sessions.save_session(session)
 
-        return self.formatter.format(reply)
+        return self.formatter.format_text(reply)
 
     # ===========================================================================
     # ROUTER
