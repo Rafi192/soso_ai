@@ -1,270 +1,334 @@
 # recommendations/recommendation_engine.py
 # Deterministic recommendation selection — no AI.
-# Picks recommendations based on category, score, and triggered signals.
-# The LLM in recommendation_workflow.py then formats them into a human message.
-# All recommendation text is sourced directly from the MUFU Brain document.
- 
+# Priority matrix sourced directly from updated MUFU Brain doc:
+#
+# TYPE 1 Delivery → GFV/MrBeast Burger (primary), TheFork (secondary)
+# TYPE 1 On-site  → TheFork (primary), WhatsApp list (secondary)
+# TYPE 2          → Hemblem (primary), TheFork (secondary)
+# TYPE 3 Costs    → Calculate food cost, simplify menu, recipe sheets
+# TYPE 3 Revenue  → GFV/MrBeast Burger (primary), Hemblem (secondary)
+# TYPE 4          → Hemblem (primary), TheFork (secondary)
+# TYPE 5          → Zelty/Innovorder/Tiller (primary)
+# TYPE 6          → Hemblem (primary), TheFork (secondary)
+
 import logging
 from app.schemas.session_schema import UserSession
- 
+
 logger = logging.getLogger(__name__)
- 
- 
-# ---------------------------------------------------------------------------
-# RECOMMENDATION BANK — sourced from MUFU Brain doc per TYPE
-#
-# Each recommendation:
-#   id          → unique identifier for logging/analytics
-#   text        → exact recommendation from the doc
-#   min_score   → minimum severity score required to trigger this
-#   signals     → list of signals that make this recommendation relevant
-#                 empty list = always show for this category
-# ---------------------------------------------------------------------------
- 
+
+
 RECOMMENDATIONS: dict[str, list[dict]] = {
- 
-    "TYPE_1_PLATFORM_DEPENDENCY": [
+
+    # ── TYPE 1 Axis A — Delivery ─────────────────────────────────────────────
+    "TYPE_1_PLATFORM_DEPENDENCY_A": [
         {
-            "id": "T1_001",
-            "text": "Put a click-and-collect QR code in every delivery bag offering customers a 10-20% discount or free dessert/drink to order directly next time.",
+            "id": "T1A_001",
+            "text": (
+                "We have an exclusive partnership with Global Food Ventures, which operates the MrBeast Burger license. "
+                "You cook MrBeast Burger from your existing kitchen, without investment, without changing your concept. "
+                "You sell on Uber Eats and Deliveroo under their brand and earn a commission on each sale. "
+                "Restaurants that already have it see a significant increase in delivery orders from the first month. "
+                "It is free, no risk, and directly increases your delivery revenue. Would you like me to connect you with their team?"
+            ),
             "min_score": 3.0,
-            "signals": ["no_direct_channel", "platform_revenue_gt_60"],
+            "signals": ["platform_revenue_gt_60", "no_direct_channel"],
         },
         {
-            "id": "T1_002",
-            "text": "Promote your direct ordering QR code on social media and at the register to start shifting customers off the platforms.",
+            "id": "T1A_002",
+            "text": (
+                "Put a click-and-collect QR code in each delivery bag to capture customers' phone numbers "
+                "by offering them a 10-20% discount or a free dessert/drink on their next direct order."
+            ),
             "min_score": 2.0,
-            "signals": ["no_direct_channel"],
+            "signals": ["no_direct_channel", "does_not_collect_customer_data"],
         },
         {
-            "id": "T1_003",
-            "text": "Launch a campaign to collect customer contact information, set up a WhatsApp group, and send one promotion per week to your direct customers.",
+            "id": "T1A_003",
+            "text": (
+                "Launch a WhatsApp list campaign — collect customer phone numbers and send one promotion per week "
+                "to your direct customers to reduce platform dependency progressively."
+            ),
             "min_score": 2.0,
             "signals": ["does_not_collect_customer_data"],
         },
         {
-            "id": "T1_004",
-            "text": "Consider a proprietary online ordering system (Zelty, Innovorder, Sunday, or Tiller) — these charge only 0-2% commission versus the 25-35% you currently pay.",
+            "id": "T1A_004",
+            "text": (
+                "Consider a direct ordering system such as Zelty, Innovorder, Sunday, or Tiller — "
+                "these charge only 0-2% commission compared to the 25-35% you currently pay on platforms."
+            ),
             "min_score": 4.0,
             "signals": ["platform_revenue_gt_60", "no_direct_channel"],
         },
+    ],
+
+    # ── TYPE 1 Axis B — On-site ──────────────────────────────────────────────
+    "TYPE_1_PLATFORM_DEPENDENCY_B": [
         {
-            "id": "T1_005",
-            "text": "Update your platform listing with recent photos, accurate hours, and start responding to all Google reviews to maximize the visibility platforms already give you.",
+            "id": "T1B_001",
+            "text": (
+                "Activate TheFork with targeted promotions on your off-peak time slots. "
+                "TheFork lets you offer 20% to 50% discounts on specific time slots you choose. "
+                "TheFork users actively look for good deals, so you attract the right people at the right time."
+            ),
             "min_score": 1.0,
-            "signals": ["platform_listing_not_optimized"],
+            "signals": ["not_on_thefork", "no_off_peak_promos"],
+        },
+        {
+            "id": "T1B_002",
+            "text": (
+                "Create one simple flagship offer only for your slow time slots: "
+                "a fixed-price daily menu, a happy hour with a free drink, or a fast lunch formula for local workers. "
+                "Push this offer on social media and on your Google Business Profile."
+            ),
+            "min_score": 1.0,
+            "signals": ["no_offpeak_menu"],
+        },
+        {
+            "id": "T1B_003",
+            "text": (
+                "Put a QR code on every table so on-site customers join your WhatsApp list. "
+                "Build your customer base and bring them back during future off-peak slots with a direct offer."
+            ),
+            "min_score": 1.0,
+            "signals": [],
         },
     ],
- 
+
+    # ── TYPE 2 — Local Visibility ────────────────────────────────────────────
     "TYPE_2_LOCAL_VISIBILITY": [
         {
             "id": "T2_001",
-            "text": "Create or complete your Google Business listing immediately — add recent photos, accurate hours, phone number, and start responding to every review.",
+            "text": (
+                "We have an exclusive partnership with Hemblem — the platform that connects restaurants "
+                "with influencers and food content creators. You sign up, receive up to 10 requests per week "
+                "from influencers who want to come eat at your place, they post on their social media, "
+                "and their followers discover your restaurant — all without ad budget. "
+                "Through our partnership you get privileged access and an exclusive rate. "
+                "Would you like me to connect you directly with their team?"
+            ),
             "min_score": 1.0,
-            "signals": ["google_listing_incomplete"],
+            "signals": ["not_active_on_social_media", "never_worked_with_influencers"],
         },
         {
             "id": "T2_002",
-            "text": "Launch a Google review campaign — ask every satisfied customer at checkout via a QR code. Target: 50 reviews in 30 days.",
-            "min_score": 2.0,
-            "signals": ["fewer_than_50_reviews_or_low_rating"],
+            "text": (
+                "TheFork lets you offer 20% to 50% discounts on specific time slots you choose. "
+                "TheFork users actively look for good deals and help fill the hours when your restaurant is empty."
+            ),
+            "min_score": 1.0,
+            "signals": [],
         },
         {
             "id": "T2_003",
-            "text": "Post 2-3 TikTok videos per week and at least 1 Instagram Story per day — behind-the-scenes prep, dish of the day, and before/after content perform best in the restaurant industry.",
-            "min_score": 2.0,
-            "signals": ["not_active_on_social_media"],
-        },
-        {
-            "id": "T2_004",
-            "text": "Partner with a local micro-influencer (5k-50k followers) — offer a complimentary dinner in exchange for an authentic post. This costs ~€30 in food and can reach 20,000 geographically targeted people.",
-            "min_score": 3.0,
-            "signals": ["not_active_on_social_media", "no_marketing_budget"],
-        },
-        {
-            "id": "T2_005",
-            "text": "Distribute targeted flyers in nearby offices, schools, and local businesses with an enticing introductory offer to drive first-time visits.",
-            "min_score": 2.0,
-            "signals": ["no_marketing_efforts"],
-        },
-        {
-            "id": "T2_006",
-            "text": "Add a direct ordering link (not a platform link) to your social media bio using Linktree or a simple landing page, with a clear call to action on every post.",
-            "min_score": 2.0,
-            "signals": [],     # always show for TYPE 2
+            "text": (
+                "Complete your Google Business profile immediately — add recent photos, accurate hours, "
+                "and start responding to every review. This is the highest-impact zero-cost action for local visibility."
+            ),
+            "min_score": 1.0,
+            "signals": ["google_listing_incomplete", "fewer_than_50_reviews_or_low_rating"],
         },
     ],
- 
-    "TYPE_3_LOW_MARGIN": [
+
+    # ── TYPE 3 Axis A — Reduce costs ─────────────────────────────────────────
+    "TYPE_3_LOW_MARGIN_A": [
         {
-            "id": "T3_001",
-            "text": "Calculate your actual food cost for the last 30 days using this formula: total ingredient purchases ÷ revenue × 100. This is your baseline.",
+            "id": "T3A_001",
+            "text": (
+                "Calculate your real food cost over the last 30 days: "
+                "total ingredient purchases divided by revenue multiplied by 100. "
+                "This is your baseline — you cannot improve what you do not measure."
+            ),
             "min_score": 1.0,
             "signals": ["food_cost_unknown_or_high"],
         },
         {
-            "id": "T3_002",
-            "text": "Simplify your menu — identify the 3 products that sell the least and remove them to reduce waste and simplify production.",
+            "id": "T3A_002",
+            "text": (
+                "Identify your 3 least-sold products and remove them from the menu. "
+                "Fewer items means less waste, simpler production, and better quality on what remains."
+            ),
             "min_score": 2.0,
             "signals": ["menu_too_extensive", "moderate_to_high_waste"],
         },
         {
-            "id": "T3_003",
-            "text": "Create simple technical data sheets for your 5 best-selling items with precise portion sizes to standardize production and reduce cost variance.",
+            "id": "T3A_003",
+            "text": (
+                "Create simple recipe sheets for your 5 best-selling products with precise quantities. "
+                "This standardizes production, reduces cost variance between cooks, and cuts waste."
+            ),
             "min_score": 2.0,
             "signals": ["no_technical_data_sheets"],
         },
         {
-            "id": "T3_004",
-            "text": "Adjust staff schedules based on actual sales data — payroll should stay below 35% of revenue. Cross-reference your schedule with revenue history by time slot.",
+            "id": "T3A_004",
+            "text": (
+                "Adjust staff schedules based on actual sales data — payroll should stay below 35% of revenue. "
+                "Cross-reference your schedule with revenue history by time slot to identify overstaffed periods."
+            ),
             "min_score": 2.0,
             "signals": ["poorly_optimized_staff"],
         },
+    ],
+
+    # ── TYPE 3 Axis B — Increase revenue ─────────────────────────────────────
+    "TYPE_3_LOW_MARGIN_B": [
         {
-            "id": "T3_005",
-            "text": "Implement Melba as your inventory and POS management tool — it imports sales from your POS, purchases from suppliers, and automatically calculates weekly food cost without manual re-entry.",
-            "min_score": 3.0,
-            "signals": ["no_management_tools"],
+            "id": "T3B_001",
+            "text": (
+                "We have an exclusive partnership with Global Food Ventures (MrBeast Burger). "
+                "Add a delivery-only concept from your existing kitchen during off-peak hours "
+                "to generate additional revenue with low incremental cost — no investment, no risk. "
+                "Would you like me to connect you with their team?"
+            ),
+            "min_score": 1.0,
+            "signals": ["spare_kitchen_capacity", "open_to_virtual_brand"],
+        },
+        {
+            "id": "T3B_002",
+            "text": (
+                "We also have a partnership with Hemblem to help drive more customers to your restaurant. "
+                "More covers directly increases your revenue without touching your cost structure."
+            ),
+            "min_score": 1.0,
+            "signals": [],
         },
     ],
- 
+
+    # ── TYPE 4 — Retention ───────────────────────────────────────────────────
     "TYPE_4_RETENTION": [
         {
             "id": "T4_001",
-            "text": "Create a WhatsApp Business list and offer every customer at the register the chance to sign up for your offers. Target: 50 numbers in 30 days.",
-            "min_score": 2.0,
-            "signals": ["no_customer_database", "never_communicates_with_customers"],
+            "text": (
+                "We have an exclusive partnership with Hemblem — they connect your restaurant with local influencers "
+                "and food content creators who post about you in exchange for a meal. "
+                "A stronger social media presence keeps your restaurant top of mind between visits "
+                "and supports customer return. Would you like me to connect you with their team?"
+            ),
+            "min_score": 1.0,
+            "signals": ["not_active_on_social_media", "no_customer_database"],
         },
         {
             "id": "T4_002",
-            "text": "Launch a simple loyalty program — even a paper stamp card is enough to start. The key is to create a mechanism that rewards repeat visits.",
-            "min_score": 2.0,
-            "signals": ["no_loyalty_program"],
+            "text": (
+                "TheFork can bring former customers back during targeted off-peak time slots with special offers. "
+                "Use it to reactivate your existing customer base at times when your restaurant is quiet."
+            ),
+            "min_score": 1.0,
+            "signals": [],
         },
         {
             "id": "T4_003",
-            "text": "Send 1 WhatsApp message per week to your customer list with a simple time-limited offer (e.g., 'Tonight only: free dessert with any meal order').",
+            "text": (
+                "Create a WhatsApp Business list — offer every customer at the register the chance to sign up "
+                "for your weekly offers. Target: 50 numbers in 30 days. "
+                "Send one promotion per week to bring them back."
+            ),
             "min_score": 2.0,
-            "signals": ["never_communicates_with_customers"],
-        },
-        {
-            "id": "T4_004",
-            "text": "Install a QR code at the register and on every table inviting customers to join your WhatsApp list with a welcome offer.",
-            "min_score": 2.0,
-            "signals": ["no_checkout_capture"],
-        },
-        {
-            "id": "T4_005",
-            "text": "Consider Zenchef — it combines reservation management, customer CRM, and automated follow-ups in one interface, automatically populating your contact database with every reservation.",
-            "min_score": 4.0,
             "signals": ["no_customer_database", "no_loyalty_program"],
         },
     ],
- 
+
+    # ── TYPE 5 — Digital Chaos ───────────────────────────────────────────────
     "TYPE_5_DIGITAL_CHAOS": [
         {
             "id": "T5_001",
-            "text": "List all your tech subscriptions and their exact monthly cost. Immediately cancel any you no longer use — this creates instant savings.",
+            "text": (
+                "List all your subscriptions and their exact monthly cost. "
+                "Immediately identify unused tools and cancel them — this creates instant savings."
+            ),
             "min_score": 1.0,
-            "signals": ["unused_paid_tools"],
+            "signals": ["unused_paid_tools", "unknown_tech_budget"],
         },
         {
             "id": "T5_002",
-            "text": "Choose one central tool that handles point-of-sale, orders, and analytics. One good tool mastered beats five tools used poorly. Lightspeed is the recommended solution.",
+            "text": (
+                "Choose one central tool that handles point-of-sale, orders, and analytics. "
+                "One good tool mastered beats five tools used poorly. "
+                "Zelty, Innovorder, and Tiller are the best options for independent restaurants — "
+                "I can help you negotiate a partnership with them."
+            ),
             "min_score": 3.0,
             "signals": ["more_than_4_unconnected_tools", "frequent_reentry"],
         },
-        {
-            "id": "T5_003",
-            "text": "Prioritize eliminating manual data re-entry first — find one integration or tool that syncs your menu across platforms automatically.",
-            "min_score": 2.0,
-            "signals": ["frequent_reentry"],
-        },
-        {
-            "id": "T5_004",
-            "text": "Ensure your POS system has real-time sales analytics by product and time slot — this data is essential for staffing, menu, and inventory decisions.",
-            "min_score": 2.0,
-            "signals": ["pos_without_analytics"],
-        },
     ],
- 
+
+    # ── TYPE 6 — Launch ──────────────────────────────────────────────────────
     "TYPE_6_LAUNCH": [
         {
             "id": "T6_001",
-            "text": "Open your TikTok and Instagram accounts now — document the construction, hiring, suppliers, and menu development. Customers who follow the journey are infinitely more loyal than those who discover you by chance.",
+            "text": (
+                "Hemblem can help create organic buzz before opening by connecting your restaurant "
+                "with local food influencers. Open your Instagram and TikTok accounts now — "
+                "document the preparation, the team, the menu. Customers who follow the journey "
+                "are far more loyal than those who discover you by chance. "
+                "Would you like me to connect you with the Hemblem team?"
+            ),
             "min_score": 1.0,
-            "signals": ["digital_presence_not_prepared"],
+            "signals": ["digital_presence_not_prepared", "no_go_to_market_strategy"],
         },
         {
             "id": "T6_002",
-            "text": "Organize a private soft opening with family, friends, neighbors, and local partners 3-5 days before the official opening to test your processes and generate word-of-mouth.",
-            "min_score": 2.0,
-            "signals": ["no_go_to_market_strategy"],
+            "text": (
+                "TheFork can help fill the room in the first weeks with targeted launch offers "
+                "on chosen time slots — giving you a strong start with real customers from day one."
+            ),
+            "min_score": 1.0,
+            "signals": [],
         },
         {
             "id": "T6_003",
-            "text": "Prepare a limited-time launch offer (e.g., special-price discovery menu for the first 15 days) to create urgency and attract your first wave of customers.",
+            "text": (
+                "Organize a private soft opening with family, friends, neighbors, and local partners "
+                "3-5 days before the official opening to test your processes and generate word of mouth."
+            ),
             "min_score": 2.0,
-            "signals": [],     # always show for TYPE 6
-        },
-        {
-            "id": "T6_004",
-            "text": "Set up customer data collection from Day 1 — QR code at the register, WhatsApp list, and a launch loyalty card so you own your customer relationships from the start.",
-            "min_score": 2.0,
-            "signals": ["no_day1_customer_acquisition"],
-        },
-        {
-            "id": "T6_005",
-            "text": "Distribute flyers in local offices, schools, and businesses with a special opening offer. Goal: reach 200-500 people before opening day.",
-            "min_score": 2.0,
-            "signals": ["no_site_survey"],
-        },
-        {
-            "id": "T6_006",
-            "text": "Create or complete your Google Business listing, reactivate your social media accounts, and post an opening announcement with photos now — before the doors open.",
-            "min_score": 1.0,
-            "signals": ["digital_presence_not_prepared"],
+            "signals": ["no_go_to_market_strategy"],
         },
     ],
- 
+
+    # ── OTHER ────────────────────────────────────────────────────────────────
     "OTHER": [
         {
             "id": "OTH_001",
-            "text": "Conduct a full business audit: food cost, labor cost, and overhead as a percentage of revenue. This gives you a clear baseline to work from.",
+            "text": (
+                "Conduct a full business audit: food cost, labor cost, and overhead as a percentage of revenue. "
+                "This gives you a clear baseline to work from."
+            ),
             "min_score": 0.0,
             "signals": [],
         },
     ],
 }
- 
- 
+
+
 class RecommendationEngine:
- 
+
     def get_recommendations(
         self,
         session: UserSession,
         max_recommendations: int = 3,
     ) -> list[str]:
         """
-        Selects the top N recommendations for this user based on:
-        - Their problem category
-        - Their severity score (min_score filter)
-        - Their triggered signals (signal relevance filter)
- 
-        Returns a plain list of recommendation text strings.
-        The LLM in recommendation_workflow.py formats these into a
-        friendly WhatsApp message — it never selects them.
+        Selects recommendations based on category, axis, score, and signals.
+        Returns plain text strings — LLM formats them into a friendly message.
         """
         category = session.category or "OTHER"
-        score = session.score
+        score = session.score or 0.0
+
+        # Resolve the correct recommendation key (with axis if applicable)
+        if session.axis and category in ["TYPE_1_PLATFORM_DEPENDENCY", "TYPE_3_LOW_MARGIN"]:
+            rec_key = f"{category}_{session.axis}"
+        else:
+            rec_key = category
+
         triggered_signals = self._get_triggered_signals(session)
- 
-        candidates = RECOMMENDATIONS.get(category, RECOMMENDATIONS["OTHER"])
- 
-        # Filter 1: severity score must meet minimum threshold
+        candidates = RECOMMENDATIONS.get(rec_key, RECOMMENDATIONS["OTHER"])
+
+        # Filter by minimum score
         score_filtered = [r for r in candidates if score >= r["min_score"]]
- 
-        # Filter 2: separate into signal-matched and always-show
+
+        # Split into signal-matched and always-show
         signal_matched = [
             r for r in score_filtered
             if r["signals"] and any(s in triggered_signals for s in r["signals"])
@@ -273,48 +337,45 @@ class RecommendationEngine:
             r for r in score_filtered
             if not r["signals"]
         ]
- 
-        # Merge: signal-matched first (most relevant), then always-show as padding
+
+        # Merge: signal-matched first, always-show as padding
         merged = signal_matched + always_show
- 
-        # Deduplicate by id preserving order
+
+        # Deduplicate preserving order
         seen = set()
         unique = []
         for r in merged:
             if r["id"] not in seen:
                 seen.add(r["id"])
                 unique.append(r)
- 
+
         selected = unique[:max_recommendations]
- 
-        # Fallback: if nothing matched at all
+
         if not selected:
             selected = RECOMMENDATIONS["OTHER"][:1]
- 
+
         logger.info(
             f"[{session.user_id}] {len(selected)} recommendations selected "
-            f"(category: {category}, score: {score}, signals: {triggered_signals})"
+            f"(key: {rec_key}, score: {score}, signals: {triggered_signals})"
         )
- 
         return [r["text"] for r in selected]
- 
+
     def _get_triggered_signals(self, session: UserSession) -> list[str]:
-        """
-        Rebuilds the list of triggered signal names from session answers.
-        Imports diagnostic_workflow here to avoid circular imports at module level.
-        """
-        from app.workflows.diagnostic_workflow import DIAGNOSTIC_QUESTIONS, Category
+        from app.workflows.diagnostic_workflow import DIAGNOSTIC_QUESTIONS
         from app.scoring.scoring_engine import _eval_signal
- 
+
         category = session.category or "OTHER"
-        questions = DIAGNOSTIC_QUESTIONS.get(category, [])
- 
+        if session.axis and category in ["TYPE_1_PLATFORM_DEPENDENCY", "TYPE_3_LOW_MARGIN"]:
+            key = f"{category}_{session.axis}"
+        else:
+            key = category
+
+        questions = DIAGNOSTIC_QUESTIONS.get(key, [])
         triggered = []
         for q in questions:
             signal = q.get("signal")
-            key = q.get("key")
-            if signal and key in session.answers:
-                if _eval_signal(signal, session.answers[key]):
+            qkey = q.get("key")
+            if signal and qkey in session.answers:
+                if _eval_signal(signal, session.answers[qkey]):
                     triggered.append(signal)
- 
         return triggered

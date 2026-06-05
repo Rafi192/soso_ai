@@ -1,7 +1,23 @@
 # llm/prompt_builder.py
 # Builds the messages array sent to OpenAI for each turn.
+# All prompts share two universal rules injected into every system prompt:
+#   1. Language detection — respond in the same language the user writes in
+#   2. Tone — precise, no filler, no emojis, direct and warm
 
 from app.schemas.session_schema import UserSession
+
+
+# ---------------------------------------------------------------------------
+# UNIVERSAL INSTRUCTIONS — injected into every system prompt
+# ---------------------------------------------------------------------------
+UNIVERSAL_RULES = (
+    "LANGUAGE: Detect the language the user is writing in and always respond "
+    "in that exact same language. If they write in French, respond in French. "
+    "If they write in English, respond in English. Never mix languages. "
+    "TONE: Be direct, warm, and precise. No filler words, no excessive compliments, "
+    "no emojis unless the user uses them first. Get to the point immediately. "
+    "Keep every message under 3 sentences unless the content genuinely requires more."
+)
 
 
 class PromptBuilder:
@@ -12,10 +28,11 @@ class PromptBuilder:
     @staticmethod
     def profile_system_prompt() -> str:
         return (
-            "You are a friendly restaurant business consultant starting a new consultation "
-            "on WhatsApp. Your job right now is to warmly greet the user and collect basic "
-            "information about their restaurant: name, city, type of cuisine, and how long "
-            "they've been operating. Ask one question at a time. Be conversational and brief."
+            "You are a restaurant business consultant starting a consultation on WhatsApp. "
+            "Your job is to collect basic information about the restaurant: "
+            "the owner's personal name, restaurant name, city, type of cuisine, and how long they have been operating. "
+            "Ask one question at a time. The owner's name is their personal name, not the restaurant name. "
+            f"{UNIVERSAL_RULES}"
         )
 
     # ---------------------------------------------------------------------------
@@ -23,24 +40,36 @@ class PromptBuilder:
     # ---------------------------------------------------------------------------
     @staticmethod
     def problem_detection_system_prompt(session: UserSession) -> str:
-        restaurant_name = session.profile.get("restaurant_name", "their restaurant")
+        restaurant_name = session.profile.get("restaurant_name", "the restaurant")
         return (
             f"You are a restaurant business consultant helping {restaurant_name}. "
-            "Your job is to understand what business problem they're facing. "
-            "Listen carefully to their response. Be empathetic and ask clarifying questions "
-            "to understand their main pain point. Keep messages short (2-3 sentences max)."
+            "Your job is to understand what business problem they are facing. "
+            "Listen carefully and ask clarifying questions if needed. "
+            f"{UNIVERSAL_RULES}"
         )
 
     # ---------------------------------------------------------------------------
     # CATEGORY CONFIRMATION
     # ---------------------------------------------------------------------------
     @staticmethod
-    def category_confirmation_prompt(session: UserSession, detected_category: str) -> str:
+    def category_confirmation_prompt(session: UserSession, detected_label: str) -> str:
         return (
-            f"You are confirming the user's main problem category with them. "
-            f"You've detected their issue is: '{detected_category}'. "
-            "Explain this back to them in simple, empathetic terms and ask them to confirm "
-            "if this sounds right. If they say no, ask them to describe their problem differently."
+            f"You are confirming the user's main problem with them. "
+            f"You detected their issue as: '{detected_label}'. "
+            "Rephrase this back to them in one empathetic sentence and ask if that is correct. "
+            f"{UNIVERSAL_RULES}"
+        )
+
+    # ---------------------------------------------------------------------------
+    # PIVOT QUESTION (Axis selection for TYPE_1 and TYPE_3)
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def pivot_system_prompt(session: UserSession) -> str:
+        restaurant_name = session.profile.get("restaurant_name", "the restaurant")
+        return (
+            f"You are a restaurant business consultant running a diagnosis for {restaurant_name}. "
+            "Ask the pivot question naturally to understand which direction to focus on. "
+            f"{UNIVERSAL_RULES}"
         )
 
     # ---------------------------------------------------------------------------
@@ -49,14 +78,14 @@ class PromptBuilder:
     @staticmethod
     def diagnostic_system_prompt(session: UserSession) -> str:
         category = session.category or "general"
+        axis_info = f" (axis: {session.axis})" if session.axis else ""
         answered = len(session.answers)
         return (
-            f"You are a restaurant consultant running a structured diagnostic on "
-            f"the topic: '{category}'. "
+            f"You are a restaurant consultant running a structured diagnostic on '{category}'{axis_info}. "
             f"You have collected {answered} answers so far. "
-            "Ask the next question naturally. One question only. "
-            "Acknowledge their previous answer briefly before asking. "
-            "Keep each message under 3 sentences."
+            "Rephrase the next question naturally. Acknowledge the previous answer briefly if relevant. "
+            "One question only per message. "
+            f"{UNIVERSAL_RULES}"
         )
 
     # ---------------------------------------------------------------------------
@@ -64,32 +93,46 @@ class PromptBuilder:
     # ---------------------------------------------------------------------------
     @staticmethod
     def recommendations_system_prompt(session: UserSession) -> str:
-        restaurant_name = session.profile.get("restaurant_name", "your restaurant")
+        restaurant_name = session.profile.get("restaurant_name", "the restaurant")
         return (
             f"You are delivering final recommendations to {restaurant_name}. "
-            "Be warm, specific, and actionable. Present findings clearly. "
-            "End by offering to go deeper on any recommendation."
+            "Present findings clearly, be specific and actionable. "
+            "End by offering to go deeper on any recommendation. "
+            f"{UNIVERSAL_RULES}"
+        )
+
+    # ---------------------------------------------------------------------------
+    # FOLLOWUP
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def followup_system_prompt(session: UserSession) -> str:
+        restaurant_name = session.profile.get("restaurant_name", "the restaurant")
+        category = session.category or "general"
+        return (
+            f"You are a restaurant business consultant continuing a conversation with {restaurant_name}. "
+            f"The main problem area was: {category}. "
+            "Answer follow-up questions using the context of everything discussed. "
+            f"{UNIVERSAL_RULES}"
         )
 
     # ---------------------------------------------------------------------------
     # SHARED: build full messages array for OpenAI
-    # system prompt + trimmed history + new user message
     # ---------------------------------------------------------------------------
     @staticmethod
     def build_messages(
         system_prompt: str,
         history: list[dict],
         user_input: str,
-        history_limit: int = 10,    # last 5 turns (10 messages) — keeps token cost low
+        history_limit: int = 10,
     ) -> list[dict]:
         """
         Assembles the final messages list sent to OpenAI.
-        Always: [system] + [last N history messages] + [new user message]
-        Trimming history prevents runaway token costs on long conversations.
+        [system] + [last N history] + [new user message]
+        Trimming history keeps token cost predictable on long conversations.
         """
-        trimmed_history = history[-history_limit:] if len(history) > history_limit else history
+        trimmed = history[-history_limit:] if len(history) > history_limit else history
         return [
             {"role": "system", "content": system_prompt},
-            *trimmed_history,
+            *trimmed,
             {"role": "user", "content": user_input},
         ]

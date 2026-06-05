@@ -29,6 +29,9 @@ STAGE_TRANSITIONS: dict[str, str] = {
 # Confidence threshold above which we stop diagnostics and go to recommendations
 CONFIDENCE_THRESHOLD = 0.80
 
+AXIS_REQUIRED_CATEGORIES = ["TYPE_1_PLATFORM_DEPENDENCY", "TYPE_3_LOW_MARGIN"]
+
+
 class UserSession(BaseModel):
     # complete session stored per suer in redis as serialized JSON
 
@@ -40,10 +43,11 @@ class UserSession(BaseModel):
     profile: dict = Field(default_factory=dict)   # owner_name, restaurant_name, city, cuisine_type, years_operating
 
     category:Optional[str] = None
-
     answers:dict = Field(default_factory=dict)
 
     score:Optional[float] = 0.0
+
+    axis: Optional[str] = None
 
     #diagnostic turn tracking-- 
     #stores the key of the question currently waiting for an answer
