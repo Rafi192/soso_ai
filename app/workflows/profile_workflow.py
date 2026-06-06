@@ -14,33 +14,36 @@ logger = logging.getLogger(__name__)
 # The questions asked in order, with the session key they map to.
 # question_index in the session tracks where we are.
 PROFILE_QUESTIONS = [
-      {
-        "key": "owner_name",
-        "raw": "What is YOUR name? (the owner or manager's personal name, not the restaurant name)",
-    },
     {
         "key": "restaurant_name",
-        "raw": "What's the name of your restaurant?",
+        "raw": "Hi, I'm your personal advisor, I'm here to help you (re)boost your restaurant. To start, what is the name of your restaurant?",
     },
     {
         "key": "city",
-        "raw": "Which city is your restaurant located in?",
+        "raw": "Great! And where are you located? (city, neighborhood or full address)",
+    },
+    {
+        "key": "owner_name",
+        "raw": "Are you the manager? How can I call you?",
     },
     {
         "key": "cuisine_type",
-        "raw": "What type of cuisine do you serve?",
+        "raw": "What type of food do you serve? (e.g.: burgers, tacos, pizza, sushi, African food, sandwiches...)",
     },
     {
-        "key": "years_operating",
-        "raw": "How long have you been operating?",
+        "key": "locations_and_service",
+        "raw": "How many locations do you have? And do you mainly work on-site, takeaway, delivery, or all three?",
+    },
+    {
+        "key": "platforms_or_direct",
+        "raw": "Which delivery platforms are you on? (Uber Eats, Deliveroo, Just Eat, other...) or do you have a direct ordering system (your website, your app, other)?",
     },
 ]
-
 
 class ProfileWorkflow:
 
     def is_complete(self, session: UserSession) -> bool:
-        required = [q["key"] for q in PROFILE_QUESTIONS]
+        required = ["restaurant_name", "city", "owner_name", "cuisine_type", "locations_and_service", "platforms_or_direct"]
         return all(k in session.profile for k in required)
 
     def get_next_unanswered(self, session: UserSession) -> dict | None:

@@ -25,13 +25,21 @@ class PromptBuilder:
     # ---------------------------------------------------------------------------
     # PROFILE COLLECTION
     # ---------------------------------------------------------------------------
+    # @staticmethod
+    # def profile_system_prompt() -> str:
+    #     return (
+    #         "You are a restaurant business consultant starting a consultation on WhatsApp. "
+    #         "Your job is to collect basic information about the restaurant: "
+    #         "the owner's personal name, restaurant name, city, type of cuisine, and how long they have been operating. "
+    #         "Ask one question at a time. The owner's name is their personal name, not the restaurant name. "
+    #         f"{UNIVERSAL_RULES}"
+    #     )
     @staticmethod
     def profile_system_prompt() -> str:
         return (
             "You are a restaurant business consultant starting a consultation on WhatsApp. "
-            "Your job is to collect basic information about the restaurant: "
-            "the owner's personal name, restaurant name, city, type of cuisine, and how long they have been operating. "
-            "Ask one question at a time. The owner's name is their personal name, not the restaurant name. "
+            "Ask the question provided to you EXACTLY as written — do not rephrase or shorten it. "
+            "Do not add extra questions or commentary. "
             f"{UNIVERSAL_RULES}"
         )
 

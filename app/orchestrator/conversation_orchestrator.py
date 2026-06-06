@@ -190,7 +190,7 @@ class ConversationOrchestrator:
         Sets pending_question_key = "axis" so the next reply is handled
         as a pivot answer in _handle_diagnostics().
         """
-        from app.llm.openai_client import _chat
+        from app.llm.openai_client import chat
         from app.llm.prompt_builder import PromptBuilder
         from app.config.settings import settings
 
@@ -207,7 +207,7 @@ class ConversationOrchestrator:
             history=session.history,
             user_input=f"Ask this question naturally: {raw}",
         )
-        return await _chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=80,

@@ -1,10 +1,13 @@
 # workflows/recommendation_workflow.py
-# Generates the final output: summary + root cause + recommendations + next steps.
-# Deterministic engine selects recommendations; LLM formats them humanly.
+# Generates the final recommendation message.
+# Deterministic engine selects WHAT to recommend.
+# LLM only formats HOW to present it — never changes the content.
 
 import logging
 from app.schemas.session_schema import UserSession
-from app.llm.openai_client import summarize_findings, generate_final_response
+from app.llm.openai_client import chat
+from app.llm.prompt_builder import PromptBuilder
+from app.config.settings import settings
 from app.scoring.scoring_engine import ScoringEngine
 from app.recommendations.recommendation_engine import RecommendationEngine
 
@@ -20,31 +23,76 @@ class RecommendationWorkflow:
     async def generate(self, session: UserSession) -> str:
         """
         Full recommendation pipeline:
-        1. Calculate final severity score
-        2. Select recommendations (deterministic)
-        3. Summarize findings (LLM)
-        4. Format final message (LLM)
+        1. Calculate final severity score (deterministic)
+        2. Select recommendations (deterministic — from recommendation_engine)
+        3. Format into final WhatsApp message (LLM — presents faithfully)
         """
-        # Step 1: Final score
-        session.score = self.scoring.calculate_severity_score(session)
-        logger.info(f"[{session.user_id}] Final score: {session.score}")
+        # # Step 1: Final score
+        # session.score = self.scoring.calculate_severity_score(session)
+        # logger.info(f"[{session.user_id}] Final score: {session.score}")
 
-        # Step 2: Pick recommendations — no AI, pure logic
+        # Step 2: Select recommendations — pure logic, no AI
         recommendations = self.rec_engine.get_recommendations(session)
         logger.info(f"[{session.user_id}] {len(recommendations)} recommendations selected")
 
-        # Step 3: LLM summarizes the findings in natural language
-        summary = await summarize_findings(
-            answers=session.answers,
-            category=session.category or "GENERAL",
-            score=session.score,
+        # Step 3: Format the message
+        return await self._format_recommendations(session, recommendations)
+
+    async def _format_recommendations(
+        self, session: UserSession, recommendations: list[str]
+    ) -> str:
+        """
+        Asks the LLM to present the recommendations in a warm, structured
+        WhatsApp message. The LLM must present the recommendations exactly
+        as given — it must not replace, summarize, or ignore any of them.
+        Partnerships (GFV, Hemblem, TheFork) must be mentioned by name.
+        """
+        owner_name = session.profile.get("owner_name", "")
+        restaurant_name = session.profile.get("restaurant_name", "your restaurant")
+        category = session.category or "GENERAL"
+
+        # Number each recommendation for the LLM
+        numbered = "\n".join(
+            f"{i+1}. {rec}" for i, rec in enumerate(recommendations)
         )
 
-        # Step 4: LLM formats everything into one final WhatsApp message
-        final_message = await generate_final_response(
-            summary=summary,
-            recommendations=recommendations,
-            profile=session.profile,
+        system_prompt = (
+            f"You are a restaurant business consultant delivering final recommendations "
+            f"to {owner_name} at {restaurant_name}. "
+            "Present the recommendations below exactly as written — do not replace, "
+            "summarize, or omit any of them. Do not invent new recommendations. "
+            "If a recommendation mentions a partnership (GFV, MrBeast Burger, Hemblem, TheFork, "
+            "Zelty, Innovorder, Tiller), keep that reference intact — these are real exclusive partnerships. "
+            "Structure your message as: one short intro sentence, then the numbered recommendations, "
+            "then one closing sentence offering to elaborate. "
+            f"Severity score: {session.score}. Problem area: {category}. "
+            f"{PromptBuilder.UNIVERSAL_RULES if hasattr(PromptBuilder, 'UNIVERSAL_RULES') else ''}"
         )
 
-        return final_message
+        # Build the universal rules inline since we need them here
+        universal_rules = (
+            "LANGUAGE: Detect the language the user is writing in and respond in that same language. "
+            "TONE: Direct, warm, precise. No filler, no emojis unless user used them first. "
+            "Under 300 words total."
+        )
+
+        messages = [
+            {
+                "role": "system",
+                "content": f"{system_prompt}\n\n{universal_rules}",
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Present these recommendations to {owner_name} at {restaurant_name}:\n\n"
+                    f"{numbered}"
+                ),
+            },
+        ]
+
+        return await chat(
+            messages=messages,
+            model=settings.OPENAI_MODEL,
+            max_tokens=500,
+            temperature=0.5,   # low temperature — we want faithful presentation
+        )
