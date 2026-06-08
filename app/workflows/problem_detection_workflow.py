@@ -16,24 +16,23 @@ logger = logging.getLogger(__name__)
 # Order matters — numeric selection maps by index (1 = first item)
 # ---------------------------------------------------------------------------
 CATEGORIES = [
-    "TYPE_1_PLATFORM_DEPENDENCY",   
-    "TYPE_2_LOCAL_VISIBILITY",    
-    "TYPE_3_LOW_MARGIN",            
-    "TYPE_4_RETENTION",             
-    "TYPE_5_DIGITAL_CHAOS",       
-    "TYPE_6_LAUNCH",                
-    "OTHER",                      
+    "TYPE_2_LOCAL_VISIBILITY",        # 1
+    "TYPE_1_PLATFORM_DEPENDENCY",     # 2
+    "TYPE_3_LOW_MARGIN",              # 3
+    "TYPE_4_RETENTION",               # 4
+    "TYPE_5_DIGITAL_CHAOS",           # 5
+    "TYPE_6_LAUNCH",                  # 6
+    "OTHER",                          # 7
 ]
 
-# Human-readable labels shown in the menu — matches MUFU Brain doc exactly
 CATEGORY_LABELS = {
-    "TYPE_1_PLATFORM_DEPENDENCY":  "1 Too dependent on platforms (Uber, Deliveroo...)",
-    "TYPE_2_LOCAL_VISIBILITY":     "2 Not enough customers / lack of visibility (social media)",
-    "TYPE_3_LOW_MARGIN":           "3 I'm making sales but not enough profit (margins)",
-    "TYPE_4_RETENTION":            "4 Customers come but don't come back",
-    "TYPE_5_DIGITAL_CHAOS":        "5 I have lots of tools but it's chaotic",
-    "TYPE_6_LAUNCH":               "6 I'm launching / relaunching a location",
-    "OTHER":                       "7 Something else",
+    "TYPE_2_LOCAL_VISIBILITY":        "1 Not enough customers / lack of visibility (social media)",
+    "TYPE_1_PLATFORM_DEPENDENCY":     "2 Too dependent on delivery platforms (Uber, Deliveroo...)",
+    "TYPE_3_LOW_MARGIN":              "3 I make revenue but I don't earn enough (margins)",
+    "TYPE_4_RETENTION":               "4 Customers come but don't come back",
+    "TYPE_5_DIGITAL_CHAOS":           "5 I have lots of tools but it's chaos",
+    "TYPE_6_LAUNCH":                  "6 I'm launching / relaunching a location",
+    "OTHER":                          "7 Something else",
 }
 
 # Keywords that suggest the user is describing multiple problems

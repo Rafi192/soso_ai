@@ -139,8 +139,8 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "total ingredient purchases divided by revenue multiplied by 100. "
                 "This is your baseline — you cannot improve what you do not measure."
             ),
-            "min_score": 1.0,
-            "signals": ["food_cost_unknown_or_high"],
+            "min_score": 0.0,
+            "signals": [],
         },
         {
             "id": "T3A_002",
@@ -148,8 +148,9 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "Identify your 3 least-sold products and remove them from the menu. "
                 "Fewer items means less waste, simpler production, and better quality on what remains."
             ),
-            "min_score": 2.0,
-            "signals": ["menu_too_extensive", "moderate_to_high_waste"],
+            "min_score": 0.0,
+            # "signals": ["menu_too_extensive", "moderate_to_high_waste"],
+            "signals": [""],
         },
         {
             "id": "T3A_003",
@@ -157,8 +158,9 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "Create simple recipe sheets for your 5 best-selling products with precise quantities. "
                 "This standardizes production, reduces cost variance between cooks, and cuts waste."
             ),
-            "min_score": 2.0,
-            "signals": ["no_technical_data_sheets"],
+            "min_score": 0.0,
+            # "signals": ["no_technical_data_sheets"],
+            "signals": [""],
         },
         {
             "id": "T3A_004",
@@ -166,8 +168,9 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "Adjust staff schedules based on actual sales data — payroll should stay below 35% of revenue. "
                 "Cross-reference your schedule with revenue history by time slot to identify overstaffed periods."
             ),
-            "min_score": 2.0,
-            "signals": ["poorly_optimized_staff"],
+            "min_score": 0.0,
+            # "signals": ["poorly_optimized_staff"],
+            "signals": [""],
         },
     ],
 
@@ -181,8 +184,10 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "to generate additional revenue with low incremental cost — no investment, no risk. "
                 "Would you like me to connect you with their team?"
             ),
-            "min_score": 1.0,
-            "signals": ["spare_kitchen_capacity", "open_to_virtual_brand"],
+            "min_score": 0.0,
+            # "signals": ["spare_kitchen_capacity", "open_to_virtual_brand"],
+            "signals": [],
+
         },
         {
             "id": "T3B_002",
@@ -190,7 +195,7 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "We also have a partnership with Hemblem to help drive more customers to your restaurant. "
                 "More covers directly increases your revenue without touching your cost structure."
             ),
-            "min_score": 1.0,
+            "min_score": 0.0,
             "signals": [],
         },
     ],

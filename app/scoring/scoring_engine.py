@@ -4,6 +4,7 @@
 # Also calculates confidence score (0.0-1.0) for the orchestrator stop condition.
 
 import logging
+# from signal import signal
 from app.schemas.session_schema import UserSession
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,8 @@ SIGNAL_SCORES = {
         "no_sales_tracking_by_product":     2,
         "menu_too_extensive":               1,
         "does_not_know_commissions":        2,
+        "spare_kitchen_capacity": 2,
+        "open_to_virtual_brand":  2,
     },
 
     "TYPE_4_RETENTION": {
@@ -167,6 +170,12 @@ def _eval_signal(signal: str, answer: str) -> bool:
 
     if signal == "moderate_to_high_waste":
         return any(w in a for w in ["yes", "a lot", "moderate", "high", "quite", "often", "frequently"])
+    
+    if signal == "spare_kitchen_capacity":
+        return any(w in a for w in ["yes", "yeah", "yep", "sure", "of course"])
+
+    if signal == "open_to_virtual_brand":
+        return any(w in a for w in ["yes", "yeah", "yep", "i'm in", "sure", "okay"])
 
     if signal == "no_technical_data_sheets":
         return any(w in a for w in ["no", "not", "never", "don't", "dont", "differently", "varies"])

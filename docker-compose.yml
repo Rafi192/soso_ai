@@ -23,3 +23,5 @@ services:
 
 volumes:
   redis_data:
+
+  
