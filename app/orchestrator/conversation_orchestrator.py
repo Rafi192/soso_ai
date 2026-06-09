@@ -267,7 +267,7 @@ class ConversationOrchestrator:
 
     async def _handle_followup(self, session: UserSession, user_input: str) -> str:
         from app.llm.prompt_builder import PromptBuilder
-        from app.llm.openai_client import _chat
+        from app.llm.openai_client import chat
         from app.config.settings import settings
 
         messages = PromptBuilder.build_messages(
@@ -275,7 +275,7 @@ class ConversationOrchestrator:
             history=session.history,
             user_input=user_input,
         )
-        return await _chat(
+        return await chat(
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=300,

@@ -37,21 +37,22 @@ class RecommendationWorkflow:
 
         # Step 3: Format the message
         return await self._format_recommendations(session, recommendations)
-
+    
     async def _format_recommendations(
-        self, session: UserSession, recommendations: list[str]
-    ) -> str:
-        """
-        Asks the LLM to present the recommendations in a warm, structured
-        WhatsApp message. The LLM must present the recommendations exactly
-        as given — it must not replace, summarize, or ignore any of them.
-        Partnerships (GFV, Hemblem, TheFork) must be mentioned by name.
-        """
+    self, session: UserSession, recommendations: list[str]
+) -> str:
+        
         owner_name = session.profile.get("owner_name", "")
         restaurant_name = session.profile.get("restaurant_name", "your restaurant")
         category = session.category or "GENERAL"
 
-        # Number each recommendation for the LLM
+        # Detect language from last user message — not from profile data
+        last_user_msg = ""
+        for msg in reversed(session.history):
+            if msg["role"] == "user":
+                last_user_msg = msg["content"]
+                break
+
         numbered = "\n".join(
             f"{i+1}. {rec}" for i, rec in enumerate(recommendations)
         )
@@ -62,25 +63,21 @@ class RecommendationWorkflow:
             "Present the recommendations below exactly as written — do not replace, "
             "summarize, or omit any of them. Do not invent new recommendations. "
             "If a recommendation mentions a partnership (GFV, MrBeast Burger, Hemblem, TheFork, "
-            "Zelty, Innovorder, Tiller), keep that reference intact — these are real exclusive partnerships. "
-            "Structure your message as: one short intro sentence, then the numbered recommendations, "
-            "then one closing sentence offering to elaborate. "
-            f"Severity score: {session.score}. Problem area: {category}. "
-            f"{PromptBuilder.UNIVERSAL_RULES if hasattr(PromptBuilder, 'UNIVERSAL_RULES') else ''}"
-        )
-
-        # Build the universal rules inline since we need them here
-        universal_rules = (
-            "LANGUAGE: Detect the language the user is writing in and respond in that same language. "
-            "TONE: Direct, warm, precise. No filler, no emojis unless user used them first. "
-            "Under 300 words total."
+            "Zelty, Innovorder, Tiller), keep that reference intact. "
+            "Structure: one short intro sentence, numbered recommendations, one closing sentence. "
+            f"Problem area: {category}. Score: {session.score}. "
+            # Explicit language instruction — use last message, not profile data
+            f"IMPORTANT: The user's last message was '{last_user_msg}'. "
+            f"You MUST respond in the exact same language as that message. "
+            f"If the last message is in English, respond in English only. "
+            f"If in French, respond in French only. Never mix languages. "
+            f"If unclear, default to English. "        
+            f"Never respond in any other language. "
+            "No emojis. No filler. Under 300 words."
         )
 
         messages = [
-            {
-                "role": "system",
-                "content": f"{system_prompt}\n\n{universal_rules}",
-            },
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": (
@@ -94,5 +91,64 @@ class RecommendationWorkflow:
             messages=messages,
             model=settings.OPENAI_MODEL,
             max_tokens=500,
-            temperature=0.5,   # low temperature — we want faithful presentation
+            temperature=0.5,
         )
+
+    # async def _format_recommendations(
+    #     self, session: UserSession, recommendations: list[str]
+    # ) -> str:
+    #     """
+    #     Asks the LLM to present the recommendations in a warm, structured
+    #     WhatsApp message. The LLM must present the recommendations exactly
+    #     as given — it must not replace, summarize, or ignore any of them.
+    #     Partnerships (GFV, Hemblem, TheFork) must be mentioned by name.
+    #     """
+    #     owner_name = session.profile.get("owner_name", "")
+    #     restaurant_name = session.profile.get("restaurant_name", "your restaurant")
+    #     category = session.category or "GENERAL"
+
+    #     # Number each recommendation for the LLM
+    #     numbered = "\n".join(
+    #         f"{i+1}. {rec}" for i, rec in enumerate(recommendations)
+    #     )
+
+    #     system_prompt = (
+    #         f"You are a restaurant business consultant delivering final recommendations "
+    #         f"to {owner_name} at {restaurant_name}. "
+    #         "Present the recommendations below exactly as written — do not replace, "
+    #         "summarize, or omit any of them. Do not invent new recommendations. "
+    #         "If a recommendation mentions a partnership (GFV, MrBeast Burger, Hemblem, TheFork, "
+    #         "Zelty, Innovorder, Tiller), keep that reference intact — these are real exclusive partnerships. "
+    #         "Structure your message as: one short intro sentence, then the numbered recommendations, "
+    #         "then one closing sentence offering to elaborate. "
+    #         f"Severity score: {session.score}. Problem area: {category}. "
+    #         f"{PromptBuilder.UNIVERSAL_RULES if hasattr(PromptBuilder, 'UNIVERSAL_RULES') else ''}"
+    #     )
+
+    #     # Build the universal rules inline since we need them here
+    #     universal_rules = (
+    #         "LANGUAGE: Detect the language the user is writing in and respond in that same language. "
+    #         "TONE: Direct, warm, precise. No filler, no emojis unless user used them first. "
+    #         "Under 300 words total."
+    #     )
+
+    #     messages = [
+    #         {
+    #             "role": "system",
+    #             "content": f"{system_prompt}\n\n{universal_rules}",
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": (
+    #                 f"Present these recommendations to {owner_name} at {restaurant_name}:\n\n"
+    #                 f"{numbered}"
+    #             ),
+    #         },
+    #     ]
+
+    #     return await chat(
+    #         messages=messages,
+    #         model=settings.OPENAI_MODEL,
+    #         max_tokens=500,
+    #         temperature=0.5,   # low temperature — we want faithful presentation
+    #     )

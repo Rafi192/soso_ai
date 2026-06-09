@@ -11,14 +11,18 @@ from app.schemas.session_schema import UserSession
 # UNIVERSAL INSTRUCTIONS — injected into every system prompt
 # ---------------------------------------------------------------------------
 UNIVERSAL_RULES = (
-    "LANGUAGE: Detect the language the user is writing in and always respond "
-    "in that exact same language. If they write in French, respond in French. "
-    "If they write in English, respond in English. Never mix languages. "
-    "TONE: Be direct, warm, and precise. No filler words, no excessive compliments, "
-    "no emojis unless the user uses them first. Get to the point immediately. "
-    "Keep every message under 3 sentences unless the content genuinely requires more."
+    "LANGUAGE RULE — follow this strictly: "
+    "Look at the user's most recent message. "
+    "If it is written in French, respond in French. "
+    "If it is written in English, respond in English. "
+    "If the language is unclear, default to English. "
+    "You may ONLY respond in English or French — no other language under any circumstance. "
+    "Do NOT infer language from the restaurant name, city, or phone number — "
+    "only from the actual words the user wrote. "
+    "TONE: Direct, warm, and precise. No filler words. "
+    "No emojis unless the user used them first. "
+    "Keep responses concise."
 )
-
 
 class PromptBuilder:
 
