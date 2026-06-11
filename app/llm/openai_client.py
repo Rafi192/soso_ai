@@ -1,6 +1,8 @@
 import logging
 from openai import AsyncOpenAI
 from app.config.settings import settings
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +18,9 @@ def get_openai_client() -> AsyncOpenAI:
 
 
 # openai chat method
+
+
+
 async def chat(
         messages:list[dict],
         model:str,
@@ -181,3 +186,64 @@ async def generate_final_response(
         temperature=0.6,
     )
  
+
+
+ async def extract_profile_fields(user_message:str, missing_fields: dict[str, str]) -> dict:
+    # example of using the chat method for a specific task — extracting structured data from user input
+    #extract answers of user after each turn
+
+    if not missing_fields:
+        return {}
+    
+    field_descriptions = "\n".join(
+        f'- "{key}": answers the question "{question}"'
+        for key, question in missing_fields.items()
+    )
+
+    system_prompt = (
+        "You are a strict data extraction engine for a restaurant consultation form. "
+        "Given a user's message, extract ONLY the fields that are EXPLICITLY and CLEARLY "
+        "answered in the message. "
+        "Rules:\n"
+        "1. If a field is not mentioned or is ambiguous, DO NOT include it in the output.\n"
+        "2. NEVER guess, infer, or assume a value that wasn't stated.\n"
+        "3. Extract the value as the user phrased it — do not rephrase or summarize.\n"
+        "4. Return ONLY valid JSON, no markdown, no explanation, no code fences.\n"
+        "5. If NO fields can be extracted, return an empty JSON object: {}\n\n"
+        f"Fields to look for:\n{field_descriptions}\n\n"
+        "Return JSON with only the keys you found, e.g.: "
+        '{"restaurant_name": "Food Village", "city": "paris"}'
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+    ]
+
+    try:
+        result = await chat(
+            messages = messages,
+            model = settings.OPENAI_MINI_MODEL,
+            max_tokens = 300,
+            temperature = 0.0
+        )
+
+        # cleaned = result.strip()
+        cleaned = re.sub(
+             r"^```(?:json)?\s*|\s*```$",
+            "",
+            result.strip(),
+            flags= re.IGNORECASE | re.MULTILINE,
+        ).strip()
+
+        extracted = json.loads(cleaned)
+
+        if not isinstance(extracted, dict):
+            logger.warning(f"LLM returned non-dict JSON: {result}")
+            return {}
+        
+        # Only keep keys that were actually requested — defensive filter
+
+        filtered = {
+            
+        }
