@@ -120,10 +120,16 @@ class PromptBuilder:
     def followup_system_prompt(session: UserSession) -> str:
         restaurant_name = session.profile.get("restaurant_name", "the restaurant")
         category = session.category or "general"
+        
+        recs_text = "\n".join(f"- {r}" for r in session.last_recommendations) if session.last_recommendations else "No recommendations recorded."
+        
         return (
             f"You are a restaurant business consultant continuing a conversation with {restaurant_name}. "
             f"The main problem area was: {category}. "
-            "Answer follow-up questions using the context of everything discussed. "
+            f"You ALREADY gave these specific recommendations:\n{recs_text}\n\n"
+            "If the user asks what you recommend, what to do, or for clarification, "
+            "refer back to THESE SPECIFIC recommendations — do not invent new generic advice. "
+            "You may elaborate on any of these, but do not contradict or replace them. "
             f"{UNIVERSAL_RULES}"
         )
 

@@ -187,8 +187,7 @@ async def generate_final_response(
     )
  
 
-
- async def extract_profile_fields(user_message:str, missing_fields: dict[str, str]) -> dict:
+async def extract_profile_fields(user_message:str, missing_fields: dict[str, str]) -> dict:
     # example of using the chat method for a specific task — extracting structured data from user input
     #extract answers of user after each turn
 
@@ -230,7 +229,7 @@ async def generate_final_response(
 
         # cleaned = result.strip()
         cleaned = re.sub(
-             r"^```(?:json)?\s*|\s*```$",
+            r"^```(?:json)?\s*|\s*```$",
             "",
             result.strip(),
             flags= re.IGNORECASE | re.MULTILINE,
@@ -242,8 +241,88 @@ async def generate_final_response(
             logger.warning(f"LLM returned non-dict JSON: {result}")
             return {}
         
-        # Only keep keys that were actually requested — defensive filter
-
+        # Only keep keys that were actually requested 
         filtered = {
+            k: v for k, v in extracted.items() 
+            if k in missing_fields and v not in (None, "", "null")
             
         }
+        logger.info(f"Extracted profile fields found: {list(filtered.keys())}")
+
+        return filtered
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decoding failed for LLM output: {result}\nError: {e}")
+        return {}
+
+
+async def extract_diagnostic_answers(
+        user_message:str,
+        pending_questions:dict[str, str]
+):
+    # looks a user message and extracts any diagnostic answers it can find.
+
+    if not pending_questions:
+        return {}
+    
+    limited = dict(list(pending_questions.items())[:15])
+
+    question_list = "\n".join(
+        f'- ""{key}": "{question}"'
+        for key, question in limited.items()
+    )
+
+    system_prompt = (
+        "you are a strict data extraction engine for a restaurant business diagnostic"
+        "The user is answering a conversational question, but their answer might also "
+        "contain information that addresses OTHER pending questions below. "
+        "Rules:\n"
+        "1. Extract a value for a question ONLY if the message EXPLICITLY and CLEARLY "
+        "addresses it.\n"
+        "2. NEVER guess, infer, or assume — if in doubt, leave it out.\n"
+        "3. Extract the value as the user phrased it — short and faithful to their words.\n"
+        "4. Return ONLY valid JSON, no markdown, no explanation.\n"
+        "5. If nothing extra can be extracted, return {}\n\n"
+        f"Pending questions:\n{question_list}\n\n"
+        "Return JSON with only the keys you found, e.g.: "
+        '{"platform_revenue_pct": "80%", "direct_ordering_channel": "no"}'
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+
+    ]
+
+    try:
+        result = await chat(
+            messages = messages,
+            model = settings.OPENAI_MINI_MODEL,
+            max_tokens = 400,
+            temperature = 0.0
+        )
+        cleaned = re.sub(
+            r"^```(?:json)?\s*|\s*```$",
+            "",
+            result.strip(),
+            flags= re.IGNORECASE | re.MULTILINE,
+        )
+        extracted = json.loads(cleaned)
+
+        if not isinstance(extracted, dict):
+            logger.warning(f"LLM returned non-dict JSON: {result}")
+            return {}
+        
+        filtered = {
+            k: v for k, v in extracted.items()
+            if k in pending_questions and v not in (None, "", "null")
+        }
+        logger.info(f'extracted diagnostic answers:{list(filtered.keys())}')
+
+        return filtered
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"extract diagnostic asnwer failed to parse"      f"LLM output: {result}\nError: {e}")
+        return {}
+    
+

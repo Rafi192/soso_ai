@@ -94,7 +94,7 @@ class ConversationOrchestrator:
         return await self.profile_wf.get_next_question(session)
 
     async def _handle_profile(self, session: UserSession, user_input: str) -> str:
-        session = self.profile_wf.extract_answer(session, user_input)
+        session = await self.profile_wf.extract_answer(session, user_input)
 
         if self.profile_wf.is_complete(session):
             logger.info(f"[{session.user_id}] Profile complete — moving to problem detection")
@@ -153,6 +153,22 @@ class ConversationOrchestrator:
             return await self._ask_next_diagnostic_question(session)
 
         # ── Normal diagnostic answer ───────────────────────────────────────────
+        # Step 1: multi-answer extraction — check if this message also answers
+        # OTHER pending questions, not just the one that was asked.
+        pending_questions_map = self._build_pending_questions_map(session)
+        if pending_questions_map:
+            try:
+                from app.llm.openai_client import extract_diagnostic_answers
+                extracted = await extract_diagnostic_answers(user_input, pending_questions_map)
+                for key, value in extracted.items():
+                    if key not in session.answers:   # never overwrite
+                        session.answers[key] = str(value).strip()
+                        logger.info(f"[{session.user_id}] Multi-extracted: {key} = {value}")
+            except Exception as e:
+                logger.warning(f"[{session.user_id}] Diagnostic extraction failed: {e}")
+
+        # Step 2: SAFETY NET — always save the answer to the question that was
+        # actually asked, even if extraction missed it. Guarantees progress.
         if pending_key and pending_key not in session.answers:
             question_stub = {"key": pending_key}
             session = self.diagnostic_wf.extract_answer(session, question_stub, user_input)
@@ -183,6 +199,24 @@ class ConversationOrchestrator:
             return await self._handle_scoring_passthrough(session)
 
         return await self._ask_next_diagnostic_question(session)
+
+    def _build_pending_questions_map(self, session: UserSession) -> dict[str, str]:
+        """
+        Returns {answer_key: question_text} for all unanswered diagnostic
+        questions in the current category/axis. Used by the multi-answer
+        extraction step to detect if the user's message answers more than
+        the single question that was asked.
+        Excludes the currently-pending question itself — that one is
+        handled separately by the safety net.
+        """
+        questions = self.diagnostic_wf.get_questions(session)
+        pending_key = getattr(session, "pending_question_key", None)
+
+        return {
+            q["key"]: q["raw"]
+            for q in questions
+            if q["key"] not in session.answers and q["key"] != pending_key
+        }
 
     async def _ask_pivot_question(self, session: UserSession) -> str:
         """

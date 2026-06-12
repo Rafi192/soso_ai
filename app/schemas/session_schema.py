@@ -56,6 +56,8 @@ class UserSession(BaseModel):
     # converstation history - sent to openAI each turn
     history:list = Field(default_factory=list)
 
+    last_recommendations: list = Field(default_factory=list)  # store the actual rec texts
+
     # metadata
     created_at:Optional[str] = None
     last_active:Optional[str] = None
