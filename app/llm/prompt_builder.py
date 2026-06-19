@@ -141,7 +141,7 @@ class PromptBuilder:
         system_prompt: str,
         history: list[dict],
         user_input: str,
-        history_limit: int = 10,
+        history_limit: int = 20,
     ) -> list[dict]:
         """
         Assembles the final messages list sent to OpenAI.

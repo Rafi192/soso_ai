@@ -40,16 +40,28 @@ class ConversationOrchestrator:
     # ===========================================================================
     # MAIN ENTRY POINT
     # ===========================================================================
-    async def handle_message(self, user_id: str, user_input: str) -> str:
+    async def handle_message(self, user_id: str, user_input: str) -> tuple[str, str | None]:
         session = await self.sessions.load_session(user_id)
         logger.info(f"[{user_id}] Stage: {session.stage} | Input: {user_input!r}")
 
         reply = await self._route(session, user_input)
+        logger.info(f"[{session.user_id}] Reply to save in history: {reply[:100]!r}")
+        action = self._get_action(session.stage)  
+
+        # logger.info(f"[{user_id}] Reply to save in history: {reply[:100]!r}")
 
         session = self.sessions.append_history(session, user_input, reply)
         await self.sessions.save_session(session)
 
-        return self.formatter.format_text(reply)
+        return self.formatter.format_text(reply), action
+    
+    def _get_action(self, stage: str) -> str | None:
+        mapping = {
+            "PROBLEM_DETECTION":  "ONBOARDING_COMPLETE",
+            "FOLLOWUP":           "SHOW_BOOKING_CTA",
+            "RECOMMENDATIONS":    "UPDATE_STAGE_HOT_LEAD",
+        }
+        return mapping.get(stage)
 
     # ===========================================================================
     # ROUTER
@@ -201,14 +213,7 @@ class ConversationOrchestrator:
         return await self._ask_next_diagnostic_question(session)
 
     def _build_pending_questions_map(self, session: UserSession) -> dict[str, str]:
-        """
-        Returns {answer_key: question_text} for all unanswered diagnostic
-        questions in the current category/axis. Used by the multi-answer
-        extraction step to detect if the user's message answers more than
-        the single question that was asked.
-        Excludes the currently-pending question itself — that one is
-        handled separately by the safety net.
-        """
+      
         questions = self.diagnostic_wf.get_questions(session)
         pending_key = getattr(session, "pending_question_key", None)
 
@@ -219,11 +224,7 @@ class ConversationOrchestrator:
         }
 
     async def _ask_pivot_question(self, session: UserSession) -> str:
-        """
-        Asks the axis branching question for TYPE_1 and TYPE_3.
-        Sets pending_question_key = "axis" so the next reply is handled
-        as a pivot answer in _handle_diagnostics().
-        """
+ 
         from app.llm.openai_client import chat
         from app.llm.prompt_builder import PromptBuilder
         from app.config.settings import settings
@@ -292,7 +293,9 @@ class ConversationOrchestrator:
         session.score = self.scoring.calculate_severity_score(session)
         logger.info(f"[{session.user_id}] SCORING passthrough — final score: {session.score}")
         self._advance(session)
-        return await self._handle_recommendations(session)
+        result = await self._handle_recommendations(session)
+        logger.info(f"[{session.user_id}] Recommendation result: {result[:80]!r}")
+        return result
 
     async def _handle_recommendations(self, session: UserSession) -> str:
         reply = await self.recommendation_wf.generate(session)

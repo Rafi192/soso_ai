@@ -1,6 +1,3 @@
-# main.py
-# FastAPI app entry point.
-# Wires all dependencies together at startup.
 
 import logging
 from contextlib import asynccontextmanager
@@ -14,7 +11,6 @@ from app.memory.session_manager import SessionManager
 from app.orchestrator.conversation_orchestrator import ConversationOrchestrator
 from app.config.settings import settings
 
-# Configure logging once at the top level
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -31,7 +27,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up...")
 
     redis_client = await get_redis()
-    session_manager = SessionManager(redis_client)      # wrap Redis in SessionManager
+    session_manager = SessionManager(redis_client)      # wra Redis in SessionManager
     orchestrator = ConversationOrchestrator(session_manager)  # pass SessionManager
 
     app.state.orchestrator = orchestrator

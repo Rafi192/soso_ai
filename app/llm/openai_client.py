@@ -1,3 +1,5 @@
+#app/llm/openai_client.py
+
 import logging
 from openai import AsyncOpenAI
 from app.config.settings import settings
@@ -18,7 +20,6 @@ def get_openai_client() -> AsyncOpenAI:
 
 
 # openai chat method
-
 
 
 async def chat(
@@ -208,7 +209,10 @@ async def extract_profile_fields(user_message:str, missing_fields: dict[str, str
         "2. NEVER guess, infer, or assume a value that wasn't stated.\n"
         "3. Extract the value as the user phrased it — do not rephrase or summarize.\n"
         "4. Return ONLY valid JSON, no markdown, no explanation, no code fences.\n"
-        "5. If NO fields can be extracted, return an empty JSON object: {}\n\n"
+        "5. For 'owner_name': extract ONLY a proper personal name (e.g. 'James', 'Rafi'). "
+        "If the message says 'I am the owner' or 'I am the manager' without stating "
+        "an actual name, do NOT extract owner_name — leave it missing.\n"
+        "6. If NO fields can be extracted, return an empty JSON object: {}\n\n"
         f"Fields to look for:\n{field_descriptions}\n\n"
         "Return JSON with only the keys you found, e.g.: "
         '{"restaurant_name": "Food Village", "city": "paris"}'

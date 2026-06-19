@@ -30,8 +30,10 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
                 "Restaurants that already have it see a significant increase in delivery orders from the first month. "
                 "It is free, no risk, and directly increases your delivery revenue. Would you like me to connect you with their team?"
             ),
-            "min_score": 3.0,
-            "signals": ["platform_revenue_gt_60", "no_direct_channel"],
+            # "min_score": 3.0,
+            # "signals": ["platform_revenue_gt_60", "no_direct_channel"],
+            "min_score": 0.0,
+            "signals": [],
         },
         {
             "id": "T1A_002",
@@ -150,7 +152,7 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
             ),
             "min_score": 0.0,
             # "signals": ["menu_too_extensive", "moderate_to_high_waste"],
-            "signals": [""],
+            "signals": [],
         },
         {
             "id": "T3A_003",
@@ -160,7 +162,7 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
             ),
             "min_score": 0.0,
             # "signals": ["no_technical_data_sheets"],
-            "signals": [""],
+            "signals": [],
         },
         {
             "id": "T3A_004",
@@ -170,7 +172,7 @@ RECOMMENDATIONS: dict[str, list[dict]] = {
             ),
             "min_score": 0.0,
             # "signals": ["poorly_optimized_staff"],
-            "signals": [""],
+            "signals": [],
         },
     ],
 
@@ -312,7 +314,7 @@ class RecommendationEngine:
     def get_recommendations(
         self,
         session: UserSession,
-        max_recommendations: int = 3,
+        max_recommendations: int = 4,
     ) -> list[str]:
         """
         Selects recommendations based on category, axis, score, and signals.

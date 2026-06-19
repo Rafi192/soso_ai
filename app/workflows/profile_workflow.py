@@ -126,7 +126,7 @@ class ProfileWorkflow:
             return None
 
         session.pending_question_key = next_q["key"]
-
+ 
         # Present the question exactly as written — LLM should not rephrase
         system = PromptBuilder.profile_system_prompt()
         messages = PromptBuilder.build_messages(
