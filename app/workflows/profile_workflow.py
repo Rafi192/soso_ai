@@ -1,4 +1,4 @@
-# workflows/profile_workflow.py
+
 # Collects restaurant profile information per MUFU Brain doc.
 # Asks one question at a time, BUT also runs an extraction pass on every
 # message so that if the user answers multiple fields in one message,
@@ -10,6 +10,8 @@
 #   guaranteeing forward progress even if extraction finds nothing
 # - Extraction runs on the cheap mini model at temperature 0.0
 
+
+# workflows/profile_workflow.py
 import logging
 from app.schemas.session_schema import UserSession
 from app.llm.prompt_builder import PromptBuilder
@@ -24,6 +26,7 @@ PROFILE_QUESTIONS = [
     {
         "key": "restaurant_name",
         "raw": "Hi, I'm your personal advisor, I'm here to help you (re)boost your restaurant. To start, what is the name of your restaurant?",
+        "raw_fr": "Bonjour, je suis votre conseiller personnel, je suis ici pour vous aider à (re)booster votre restaurant. Pour commencer, quel est le nom de votre restaurant ?",
         "question_only": "What is the name of your restaurant?",
     },
     {
@@ -113,19 +116,52 @@ class ProfileWorkflow:
                 logger.info(f"[{session.user_id}] Profile saved (fallback): {pending_key} = {user_input.strip()}")
 
         return session
+    
+    async def detect_language(self, session:UserSession) -> str:
+        #detects the user lanuguage in eitherfr in french or en if english
+        last_user_msg = ''
+        for msg in reversed(session.history):
+            if msg["role"] == "user":
+                last_user_msg = msg["content"]
+                break
+        
+        if not last_user_msg:
+            return 'en'  # default to English if no user message found
+        
+        try:
+            messages = [
+                {"role": "system",
+                 "content": (
+                     "Detect the language of the following message"
+                     "Respond with ONLY one word: 'fr' if French, 'en' if English."
+                     "No explanations, no extra text, just the language code. Do not hallucinate or guess — if it's not clearly one of those two languages, respond with 'en' by default."
+                 )}
+            ]
+
+
+
+            result = await chat(
+                messages = messages,
+                model = settings.OPENAI_MINI_MODEL,
+                temperature = 0.0
+            )
+
+            result = result.strip().lower()
+            return 'fr' if result == 'fr' else 'en'
+        
+        except Exception as e:
+            return 'en'  # on any error, default to English
+
 
     async def get_next_question(self, session: UserSession) -> str | None:
-        """
-        Returns the next unanswered question, presented exactly as written
-        in the MUFU Brain doc (first question includes the greeting).
-        Sets pending_question_key so extract_answer() has a fallback target.
-        Returns None if profile is complete.
-        """
+      
         next_q = self.get_next_unanswered(session)
         if not next_q:
             return None
 
         session.pending_question_key = next_q["key"]
+        lang= await self.detect_language(session)
+        raw = next_q.get(f"raw_{lang}", next_q.get("raw_en", next_q["raw"]))
  
         # Present the question exactly as written — LLM should not rephrase
         system = PromptBuilder.profile_system_prompt()
@@ -134,7 +170,7 @@ class ProfileWorkflow:
             history=session.history,
             user_input=(
                 f"Present this exact question to the user, word for word, "
-                f"with no changes: \"{next_q['raw']}\""
+                f"with no changes: \"{raw}\""
             ),
         )
         return await chat(

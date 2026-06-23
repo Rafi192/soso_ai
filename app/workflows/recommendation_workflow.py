@@ -10,6 +10,7 @@ from app.llm.prompt_builder import PromptBuilder
 from app.config.settings import settings
 from app.scoring.scoring_engine import ScoringEngine
 from app.recommendations.recommendation_engine import RecommendationEngine
+from app.workflows.profile_workflow import ProfileWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class RecommendationWorkflow:
     def __init__(self):
         self.scoring = ScoringEngine()
         self.rec_engine = RecommendationEngine()
+        self.profile_workflow = ProfileWorkflow()
 
     async def generate(self, session: UserSession) -> str:
     # Always recalculate — don't trust the session score
@@ -63,35 +65,14 @@ class RecommendationWorkflow:
         restaurant_name = session.profile.get("restaurant_name", "your restaurant")
         category = session.category or "GENERAL"
 
-        # Detect language from last user message — not from profile data
-        last_user_msg = ""
-        for msg in reversed(session.history):
-            if msg["role"] == "user":
-                last_user_msg = msg["content"]
-                break
+        # Detect language from LLM
+        lang = await self.profile_workflow.detect_language(session)
+        language_label = "French" if lang == "fr" else "English"
 
         numbered = "\n".join(
-            f"{i+1}. {rec}" for i, rec in enumerate(recommendations)
-        )
+        f"{i+1}. {rec}" for i, rec in enumerate(recommendations)
+    )
 
-        # system_prompt = (
-        #     f"You are a restaurant business consultant delivering final recommendations "
-        #     f"to {owner_name} at {restaurant_name}. "
-        #     "Present the recommendations below exactly as written — do not replace, "
-        #     "summarize, or omit any of them. Do not invent new recommendations. "
-        #     "If a recommendation mentions a partnership (GFV, MrBeast Burger, Hemblem, TheFork, "
-        #     "Zelty, Innovorder, Tiller), keep that reference intact. "
-        #     "Structure: one short intro sentence, numbered recommendations, one closing sentence. "
-        #     f"Problem area: {category}. Score: {session.score}. "
-        #     # Explicit language instruction — use last message, not profile data
-        #     f"IMPORTANT: The user's last message was '{last_user_msg}'. "
-        #     f"You MUST respond in the exact same language as that message. "
-        #     f"If the last message is in English, respond in English only. "
-        #     f"If in French, respond in French only. Never mix languages. "
-        #     f"If unclear, default to English. "        
-        #     f"Never respond in any other language. "
-        #     "No emojis. No filler. Under 300 words."
-        # )
         system_prompt = (
     f"You are a restaurant business consultant delivering final recommendations "
     f"to {owner_name} at {restaurant_name}. "
@@ -103,8 +84,9 @@ class RecommendationWorkflow:
     "then the numbered recommendations, "
     "then one closing sentence offering to elaborate. "
     f"Problem area: {category}. Severity score: {session.score}. "
-    "LANGUAGE: Respond in English or French only, matching the language of the conversation. "
-    "Default to English if unclear. Never respond in any other language. "
+    f"LANGUAGE: Write your ENTIRE response in {language_label}. "
+    f"Translate the recommendation content into {language_label} — "
+    f"the source text below is in English, but your output must be fully in {language_label}. "
     "TONE: Direct, warm, precise. No filler words. No emojis. Under 300 words."
 )
 
